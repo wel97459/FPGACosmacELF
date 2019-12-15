@@ -7,5 +7,5 @@ It's other purpose is to give beginners a simple but complex project to play wit
 I'm also new to SpinalHDL myself, as of writing this.  And at the time could not find a simple project to tinker with.
 So maybe it will be of use to you in learning SpinalHDL.
 
-
+Clone this project into your source folder of your FPGA project. And when SpinalHDL generates the Verilog file/s it will place them into the folder this is cloned into.  
 
