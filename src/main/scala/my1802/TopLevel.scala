@@ -21,15 +21,14 @@ package mylib
 import spinal.core._
 import spinal.lib._
 
-import scala.util.Random
-
 //Hardware definition
 class TopLevel extends Component {
     val io = new Bundle {
         val clk50Mhz = in Bool
         val reset_n = in Bool
-        val switches = in Bits(10 bit)
+        val switches = in Bits(12 bit)
         val LEDs = out Bits(8 bits)
+        val segdis = out Bits(11 bits)
 
         val avr_tx = in Bool
         val avr_rx = out Bool
@@ -49,7 +48,7 @@ class TopLevel extends Component {
 //            clockDomain = clk10Domain
 //        )
 
-        clk8Domain.clock := pll.io.CLK_OUT2
+        clk8Domain.clock := pll.io.CLK_OUT1
         clk8Domain.reset := ResetCtrl.asyncAssertSyncDeassert(
             input = !io.reset_n || !pll.io.LOCKED,
             clockDomain = clk8Domain
@@ -63,32 +62,107 @@ class TopLevel extends Component {
 //    }
 
     val core8 = new ClockingArea(clkCtrl.clk8Domain) {
-//        val debounce = Debounce(10, 10 ms)
-//        debounce.write(~io.switches)
-//
-//        when(debounce.edge()(9)){ //Raising edge
-//            address := debounce(7 downto 0)
-//        }
 
-        val address = Reg(Bits(8 bit))
-        val rom = new fpga_rom(5)
+        val ram4096 = new Ram(12, 8)
+        ram4096.io.ena := True
+
+        val debounce = Debounce(12, 50 ms)
+        debounce.write(~io.switches)
+
+        val dlatch = Reg(Bool) init(False)
+        val alatch = Reg(Bool) init(False)
+        val segdis1 = new SevenSegment()
+        io.segdis := segdis1.io.SegDis
+
+        val step = Reg(Bool) init(False)
+        val stepDMAIn = Reg(Bool) init(False)
+        //val stepDMAOut = Reg(Bool) init(False)
+
+        var memTestData = Reg(Bits(8 bit)) init(0)
+
 
         val cpu = new cpu1802()
-        cpu.io.Wait_n := True
-        cpu.io.Clear_n := True
-        cpu.io.DMA_In_n := True
+        when(debounce(10)){
+            cpu.io.Wait_n := True
+        } otherwise(cpu.io.Wait_n := step)
+
+        cpu.io.Clear_n := debounce(11)
+        cpu.io.DMA_In_n := !stepDMAIn
         cpu.io.DMA_Out_n := True
         cpu.io.Interrupt_n := True
         cpu.io.EF_n := 15
-        when(!cpu.io.MRD) {
-            cpu.io.DataIn := rom.io.data
-            address := cpu.io.Add
-        }otherwise(cpu.io.DataIn := 0)
 
-        rom.io.addr := cpu.io.Add.resize(widthOf(rom.io.addr))
+        val serialDataOut = Bits(8 bit)
+        val DMADataIN = Reg(Bits(8 bit)) init(0)
+        val serialDataPresent = Bool
+        val UartRx = new uart_rx6()
+        UartRx.io.en_16_x_baud := True
+        serialDataOut := UartRx.io.data_out
+        serialDataPresent := UartRx.io.buffer_data_present
+        UartRx.io.buffer_reset := clkCtrl.clk8Domain.reset
+        UartRx.io.serial_in := io.avr_tx
 
-        io.LEDs := address
-        io.avr_rx := False
+        val serialDataSend = Bool
+        val DMADataOut = Reg(Bits(8 bit)) init(0)
+        val UartTx = new uart_tx6()
+        UartTx.io.en_16_x_baud := True
+        UartTx.io.data_in := cpu.io.DataOut
+        UartTx.io.buffer_write := serialDataSend
+        UartTx.io.buffer_reset := clkCtrl.clk8Domain.reset
+        io.avr_rx := UartTx.io.serial_out
+        serialDataSend := (!cpu.io.MRD && cpu.io.N === 1).fall()
+
+        when(cpu.io.SC === 2 && !debounce(8)) {
+            cpu.io.DataIn := DMADataIN
+        }elsewhen(cpu.io.SC === 2) {
+            cpu.io.DataIn := ram4096.io.douta
+        } otherwise(cpu.io.DataIn := ram4096.io.douta)
+
+        ram4096.io.wea := ~(cpu.io.MWR & !debounce(8)).asBits
+        ram4096.io.dina := cpu.io.DataOut
+
+        when(!cpu.io.MRD || !cpu.io.MWR){
+            dlatch := True
+            alatch := True
+        } otherwise{
+            dlatch := False
+            alatch := False
+        }
+
+        segdis1.io.L1 := dlatch
+        segdis1.io.L2 := alatch
+        segdis1.io.Dis1 := cpu.io.DataOut
+        segdis1.io.Dis2 := cpu.io.Add
+
+        when(!cpu.io.MRD && cpu.io.N === 2){
+            memTestData := cpu.io.DataOut
+        }
+
+
+        when(debounce.edge()(9) && debounce(11)){
+            step := True
+        }elsewhen(cpu.io.SC(0).edge()){
+            step := False
+        }
+
+        when(debounce.edge()(9) & !debounce(11)) {
+            stepDMAIn := True
+            DMADataIN := debounce(7 downto 0)
+            UartRx.io.buffer_read := False
+        }elsewhen(serialDataPresent.edge() & !debounce(11) ){
+            DMADataIN := serialDataOut
+            stepDMAIn := True
+            UartRx.io.buffer_read := True
+        }elsewhen(cpu.io.SC === 2){
+            stepDMAIn := False
+            UartRx.io.buffer_read := False
+        }otherwise{
+            UartRx.io.buffer_read := False
+        }
+
+        ram4096.io.addra := cpu.io.Add.resize(widthOf(ram4096.io.addra))
+
+        io.LEDs := memTestData
     }
 }
 
