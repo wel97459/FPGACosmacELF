@@ -1,4 +1,4 @@
-package mylib
+package Spinal1802
 
 import spinal.core._
 import spinal.lib.Timeout

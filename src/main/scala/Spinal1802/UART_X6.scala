@@ -1,8 +1,8 @@
-package mylib
+package Spinal1802
 
 import spinal.core._
 
-class uart_rx6 extends BlackBox{
+class uart_rx6(Name: String) extends BlackBox{
     val io = new Bundle {
         val clk = in Bool
         val buffer_reset = in Bool
@@ -17,9 +17,10 @@ class uart_rx6 extends BlackBox{
     }
     noIoPrefix()
     mapClockDomain(clock=io.clk)
+    setBlackBoxName(Name)
 }
 
-class uart_tx6 extends BlackBox{
+class uart_tx6(Name: String) extends BlackBox{
     val io = new Bundle {
         val clk = in Bool
         val buffer_reset = in Bool
@@ -33,4 +34,5 @@ class uart_tx6 extends BlackBox{
         val buffer_full = out Bool
     }
     mapClockDomain(clock=io.clk)
+    setBlackBoxName(Name)
 }
