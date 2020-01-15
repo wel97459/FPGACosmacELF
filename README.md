@@ -1,7 +1,7 @@
 # FPGA Cosmac ELF
 This re-creation of a Cosmac ELF computer, Coded in SpinalHDL.
 
-The goal of this project is to end up with a cycle-accurate 1802 processor.
+The goal of this project is to end up with a cycle-accurate 1802 processor that can be used in FPGA designs easily.
 When I start the project I was new to SpinalHDL but I had attempted in the past to write the same processor in VHDL.
 However, language complexity and the sheer amount of code and time needed to write and debug that project ended the work on it.
 
