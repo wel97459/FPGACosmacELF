@@ -13,6 +13,8 @@ The test program included uses the Floating Point Subroutines by Paul Wasserman.
 I copied the subroutines listing by hand into a hex editor, and checked them by overlaying a image of the hex code I copied, with the scanned images.
 Included is a copy of the scans, and a copy of the binary file for the subroutines.  Along with the assemble for the program used to test the CPU.
 
+If you would like to learn more about 1802 CPU here's a video about the designer [Josh Bensadon](https://www.youtube.com/watch?v=xwUrGlYN8eo), For infomation about the [Cosmac Elf](https://en.wikipedia.org/wiki/COSMAC_ELF) here's the wiki page.
+
 #### Features:
 * Able to load programs over the serial interface
 * CPU can send serial data with OUT 1 and with check if serial FIFO is full with BN1
