@@ -20,7 +20,6 @@ Included is a copy of the scans, and a copy of the binary file for the subroutin
 #### TODO's:
 * Finish interrupt cycle.
 * Add support to allow CPU access to the RX serial data.     
-* Add a wiki to document the hardware.
 
 #### How setup your project:
 1. You will need to have [SpinalHDL](https://spinalhdl.github.io/SpinalDoc-RTD/SpinalHDL/Getting%20Started/getting_started.html) 
