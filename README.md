@@ -2,7 +2,7 @@
 This re-creation of a Cosmac ELF computer, Coded in SpinalHDL.
 
 The goal of this project is to end up with a cycle-accurate 1802 processor.
-When I start the project I was new to SpinalHDL I had also attempted in the past to write the same processor in VHDL. 
+When I start the project I was new to SpinalHDL but I had attempted in the past to write the same processor in VHDL.
 However, language complexity and the sheer amount of code and time needed to write and debug that project ended the work on it.
 
 To make verification of the CPU easier, I made the simulation capable of reading the [Emma](https://www.emma02.hobby-site.com/) debug trace log format.
@@ -23,8 +23,8 @@ The computer that led to the development of 1802 processor was called FRED.
 [<img src="https://cdn.discordapp.com/attachments/664986544284631040/666848639355715587/unknown.png" width="200" />](https://cdn.discordapp.com/attachments/664986544284631040/666848639355715587/unknown.png)<br/><br/>
 The assembly language for the 1802 process is easy to understand, and the data flow of the cpu is easy to follow.
 <br/>[<img src="https://cdn.discordapp.com/attachments/664986544284631040/666855126354624522/unknown.png" width="200" />](https://cdn.discordapp.com/attachments/664986544284631040/666855126354624522/unknown.png)<br><br>
-Using SpinalHDL made this project fun to work on.  I have tried making this processor in VHDL in the past,
-but the amount of code and complexity just make it not worth the time. The Verilog code genrated by SpinalHDL for just the cpu is 1500 lines, and cpu1802.scala file is 700 lines.
+Using SpinalHDL made this project fun to work on.
+The Verilog code genrated by SpinalHDL for just the cpu is 1500 lines, and cpu1802.scala file is 700 lines.
 I highly suggest installing and playing with SpinalHDL, it very powerful and the code is maintainable and reusable, and just works without the headaches. 
   
 #### Features:
