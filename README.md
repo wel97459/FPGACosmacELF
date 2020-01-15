@@ -6,7 +6,7 @@ I'm also new to SpinalHDL, as of writing this. So this project gave me something
 
 To make verification of the CPU easier, I made the simulation capable of reading the [Emma](https://www.emma02.hobby-site.com/) debug trace log format.
 The theory is that the CPU should follow that same path as the debug trace log, 
-if the Address or D register doesn't match the one in the log then there is some issue and it will halt the simulation at that point.
+if the Address or D register doesn't match the one in the log then there is a issue and it will halt the simulation at that point.
 Using GTKWave you can view the output of the simulation and debug the issue.
 
 The test program included uses the Floating Point Subroutines by Paul Wasserman.
