@@ -15,6 +15,18 @@ Included is a copy of the scans, and a copy of the binary file for the subroutin
 
 If you would like to learn more about the 1802 processor here's a video about the designer [Josh Bensadon](https://www.youtube.com/watch?v=xwUrGlYN8eo), For infomation about the [Cosmac Elf](https://en.wikipedia.org/wiki/COSMAC_ELF) computer here's the wiki page.
 
+#### Way build the 1802
+Josh Bensadon had a goal when designing computers, and that was they had to be fun.
+The computer that led to the development of 1802 processor was called FRED.
+<br/>[<img src="https://cdn.discordapp.com/attachments/664986544284631040/666853909029060618/unknown.png" width="200" />](https://cdn.discordapp.com/attachments/664986544284631040/666853909029060618/unknown.png)
+[<img src="https://cdn.discordapp.com/attachments/664986544284631040/666848639355715587/unknown.png" width="200" />](https://cdn.discordapp.com/attachments/664986544284631040/666848639355715587/unknown.png)<br/><br/>
+The assembly language for the 1802 process is easy to understand, and the data flow of the cpu is easy to follow.
+<br/>[<img src="https://cdn.discordapp.com/attachments/664986544284631040/666855126354624522/unknown.png" width="200" />](https://cdn.discordapp.com/attachments/664986544284631040/666855126354624522/unknown.png)<br><br>
+I found that using SpinalHDL made this a project fun to work on.  I have tried making this processor in VHDL in the past,
+but the amount of code and complexity just make it not worth the time.
+I highly suggest installing and playing with SpinalHDL, it very powerful and the code is maintainable, portable and reusable,
+where as HDL is not.
+  
 #### Features:
 * Able to load programs over the serial interface
 * Processor can send serial data with opcode OUT 1, and can check if the serial FIFO is full with opcode BN1
