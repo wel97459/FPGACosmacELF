@@ -17,7 +17,7 @@ If you would like to learn more about the 1802 processor here's a video about th
 
 #### Features:
 * Able to load programs over the serial interface
-* CPU can send serial data with OUT 1 and with check if serial FIFO is full with BN1
+* Processor can send serial data with opcode OUT 1, and can check if the serial FIFO is full with opcode BN1
 
 #### TODO's:
 * Finish interrupt cycle.
