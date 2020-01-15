@@ -1,9 +1,9 @@
-package mylib
+package Spinal1802
 
 import spinal.core._
 import spinal.lib._
 
-class PLL_BB(number: Int = 1) extends BlackBox {
+class PLL_BB(Name: String) extends BlackBox {
     val io = new Bundle {
         val CLK_IN1     = in  Bool
         val RESET       = in Bool
@@ -16,4 +16,5 @@ class PLL_BB(number: Int = 1) extends BlackBox {
         val LOCKED      = out Bool
     }
     noIoPrefix()
+    setBlackBoxName(Name)
 }

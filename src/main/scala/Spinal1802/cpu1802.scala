@@ -1,8 +1,9 @@
-package mylib
+package Spinal1802
 
 import spinal.core.{Bundle, _}
 import spinal.lib.fsm.{EntryPoint, State, StateDelay, StateMachine}
-import spinal.lib.{Counter}
+import spinal.lib.{Counter, Timeout}
+import spinal.lib.misc.Timer
 
 object CPUModes extends SpinalEnum {
     val Load, Reset, Pause, Run = newElement()
@@ -46,7 +47,8 @@ class cpu1802() extends Component {
 
         val MRD = out Bool
         val MWR = out Bool
-        val Add = out Bits(8 bit)
+        val Addr = out Bits(8 bit)
+        val Addr16 = out Bits(16 bit)
         val DataIn = in Bits(8 bit)
         val DataOut = out Bits(8 bit)
     }
@@ -68,8 +70,10 @@ class cpu1802() extends Component {
     val BusControl = Reg(BusControlModes())
     val DRegControl = Reg(DRegControlModes())
 
-    val Add = Reg(UInt(16 bit)) init(0)//Current Address Register
+    val Addr = Reg(UInt(16 bit)) init(0)//Current Address Register
+    val Addr16 = RegNext(Addr) init(0)//gives it a delay by one clock
     val D = Reg(UInt(8 bit)) init(0)//Data Register (Accumulator)
+    val Dlast = RegNext(D)//Data Register (Accumulator)
 
     val outN = Reg(UInt(3 bit)) init(0) //Holds Low-Order Instruction Digit
     val N = Reg(UInt(4 bit)) //Holds Low-Order Instruction Digit
@@ -78,9 +82,15 @@ class cpu1802() extends Component {
     val X = Reg(UInt(4 bit)) //Designates which register is Data Pointer
     val T = Reg(UInt(8 bit)) init(0)//Holds old X, P after Interrupt (X is high nibble)
 
+    val EF = RegNext(~io.EF_n)
     val IE = Reg(Bool) init(True) //Interrupt Enable
     val DF = Reg(Bool) init(False) //Data Flag (ALU Carry)
+    val DFLast = RegNext(DF) //For Testing
+    val OP = RegNext(Cat(I,N))
     val Idle = Reg(Bool) init(False)
+    val Reset = Reg(Bool) init(False)
+    val Branch = Reg(Bool) init(False)
+    val Skip = RegNext(N === 0x4 || N === 0x5 || N === 0x6 || N === 0x7 || N === 0x8 || N === 0xC || N === 0xD || N === 0xE || N === 0xF)
     //ALU Operations
     val ALU_Add = UInt(9 bit)
     val ALU_AddCarry = UInt(9 bit)
@@ -123,8 +133,10 @@ class cpu1802() extends Component {
     io.MRD := MRD
     io.MWR := MWR
     io.DataOut := Bus.asBits
+    io.Addr16 := Addr16.asBits
 
     //Counter Control
+
     when(StartCounting && Mode =/= CPUModes.Pause) {
         StateCounter.increment()
     }
@@ -168,15 +180,20 @@ class cpu1802() extends Component {
         R(RSel) := Cat (Bus,R(RSel)(7 downto 0).asBits).asUInt
     } elsewhen (RegOpMode === RegOperationModes.LoadLower) {
         R(RSel) := Cat (R(RSel)(15 downto 8).asBits,Bus).asUInt
+    } elsewhen(Reset){
+        R(0).setAllTo(false)
     }
 
     //Address Logic
     when(StateCounter === 0) {
-        Add := A;
+        Addr := A;
+    }elsewhen(Reset){
+        Addr := 0;
     }
+
     when(StateCounter >= 1 && StateCounter <= 2) {
-        io.Add := Add(15 downto 8).asBits
-    } otherwise(io.Add := Add(7 downto 0).asBits)
+        io.Addr := Addr(15 downto 8).asBits
+    } otherwise(io.Addr := Addr(7 downto 0).asBits)
 
     //Memory Read Control Lines
     when(StateCounter >= 3) {
@@ -193,18 +210,21 @@ class cpu1802() extends Component {
 
     //Memory Write Control Lines
     when(StateCounter >= 5 && StateCounter < 7) {
-        when ((SC === 1 || SC === 2) && (ExeMode === ExecuteModes.Write || ExeMode === ExecuteModes.WriteDec || ExeMode === ExecuteModes.WriteNoInc || ExeMode === ExecuteModes.DMA_In)){
+        when ((SC === 1 || SC === 2) && (
+                ExeMode === ExecuteModes.Write || ExeMode === ExecuteModes.WriteDec ||
+                ExeMode === ExecuteModes.WriteNoInc || ExeMode === ExecuteModes.DMA_In
+            )){
             MWR := False
         }
     } otherwise(MWR := True)
 
     // D Register Logic / ALU Logic
-    ALU_Add := Bus + D.resize(9);
-    ALU_AddCarry := ALU_Add + DF.asUInt
-    ALU_SubD := Bus - D.resize(9);
-    ALU_SubM := D.resize(9) - Bus
-    ALU_SubDB := ALU_SubD - ~DF.asUInt
-    ALU_SubMB := ALU_SubM - ~DF.asUInt
+    ALU_Add := Bus.resize(9) + D.resize(9)
+    ALU_AddCarry := ALU_Add + Cat(B"8'h00", DF).asUInt
+    ALU_SubD := Bus.resize(9) - D.resize(9)
+    ALU_SubM := D.resize(9) - Bus.resize(9)
+    ALU_SubDB := ALU_SubD - Cat(B"8'h00", !DF).asUInt
+    ALU_SubMB := ALU_SubM - Cat(B"8'h00", !DF).asUInt
 
     when(DRegControl === DRegControlModes.BusIn){
         D := Bus
@@ -215,17 +235,17 @@ class cpu1802() extends Component {
     }elsewhen(DRegControl === DRegControlModes.ALU_AND){
         D := Bus & D
     }elsewhen(DRegControl === DRegControlModes.ALU_RSH){
-        DF := D.lsb
+        DF := Dlast.lsb
         D := D |>> 1
     }elsewhen(DRegControl === DRegControlModes.ALU_RSHR) {
-        DF := D.lsb
-        D := D.rotateRight(1)
+        DF := Dlast.lsb
+        D := D |>> 1 | Cat(DFLast, B"7'h00").asUInt
     }elsewhen(DRegControl === DRegControlModes.ALU_LSH){
-        DF := D.msb
+        DF := Dlast.msb
         D := D |<< 1
     }elsewhen(DRegControl === DRegControlModes.ALU_LSHR) {
-        DF := D.msb
-        D := D.rotateLeft(1)
+        DF := Dlast.msb
+        D := D |<< 1 | Cat(B"7'h00", DFLast).asUInt
     }elsewhen(DRegControl === DRegControlModes.ALU_Add) {
         DF := ALU_Add.msb
         D := ALU_Add.resize(8)
@@ -233,11 +253,20 @@ class cpu1802() extends Component {
         DF := ALU_AddCarry.msb
         D := ALU_AddCarry.resize(8)
     }elsewhen(DRegControl === DRegControlModes.ALU_SubD){
-        DF := ALU_SubD.msb
+        DF := !ALU_SubD.msb
         D := ALU_SubD.resize(8)
-    }elsewhen(DRegControl === DRegControlModes.ALU_SubM){
-        DF := ALU_SubM.msb
+    }elsewhen(DRegControl === DRegControlModes.ALU_SubM) {
+        DF := !ALU_SubM.msb
         D := ALU_SubM.resize(8)
+    }elsewhen(DRegControl === DRegControlModes.ALU_SubDBorrow){
+        DF := !ALU_SubDB.msb
+        D := ALU_SubDB.resize(8)
+    }elsewhen(DRegControl === DRegControlModes.ALU_SubMBorrow){
+        DF := !ALU_SubMB.msb
+        D := ALU_SubMB.resize(8)
+    }elsewhen(Reset){
+        DF := False
+        D := 0
     }
 
     //Data Bus Logic
@@ -255,12 +284,36 @@ class cpu1802() extends Component {
         Bus := A(15 downto 8)
     } otherwise(Bus := 0)
 
+    //Check for a branch condition
+        when(N === 0x0 || (I === 0xC && N===0x4)) {
+            Branch := True
+        }elsewhen(N === 0x1 || (I === 0xC && N===0x5)){
+            Branch := (Q === True)
+        }elsewhen(N === 0x2 || (I === 0xC && N===0x6)){
+            Branch := (D === 0x0)
+        }elsewhen(N === 0x3 || (I === 0xC && N===0x7)){
+            Branch := (DF === True)
+        }elsewhen(N === 0x9 || (I === 0xC && N===0xD)){
+            Branch := (Q === False)
+        }elsewhen(N === 0xA || (I === 0xC && N===0xE)){
+            Branch := (D =/= 0x0)
+        }elsewhen(N === 0xB || (I === 0xC && N===0xF)){
+            Branch := (DF === False)
+        }elsewhen((I === 0xC && N===0xC)){
+            Branch := (IE === False)
+        }elsewhen(I === 0x3 && (N===0x4 || N===0x5 || N===0x6 || N===0x7)){
+            Branch := (EF(N(1 downto 0)) === True)
+        }elsewhen(I === 0x3 && (N===0xC || N===0xD || N===0xE || N===0xF)) {
+            Branch := (EF(N(1 downto 0)) === False)
+        }otherwise(Branch := False)
+
+
     val CoreFMS = new StateMachine {
 
         val S1_Reset: State = new State with EntryPoint {
             whenIsActive {
                 SC := 1
-                R.map(_ := 0)
+
                 when(Mode =/= CPUModes.Reset) {
                     goto(S1_Init)
                 }
@@ -268,19 +321,18 @@ class cpu1802() extends Component {
         }
 
         val S1_Init: State = new StateDelay(9) {
-            whenIsActive{
+            whenIsActive {
                 StateCounter.clear()
                 ExeMode := ExecuteModes.None
                 RegSelMode := RegSelectModes.PSel
                 RegOpMode := RegOperationModes.None
                 DRegControl := DRegControlModes.None
                 BusControl := BusControlModes.DataIn
+                Reset := True
                 Idle := False
                 IE := False
-                DF := False
                 outN := 0
                 T := 0
-                R0 := 0
                 P := 0
                 X := 0
                 I := 0
@@ -299,11 +351,12 @@ class cpu1802() extends Component {
 
         val S0_Fetch: State = new State {
             whenIsActive{
+                Reset := False
                 SC := 0
                 when(StateCounter === 0) {
                     ExeMode := ExecuteModes.None
                     BusControl := BusControlModes.DataIn
-                    RegSelMode := mylib.RegSelectModes.PSel
+                    RegSelMode := RegSelectModes.PSel
                 }
                 when(StateCounter === 1) {
                     RegOpMode := RegOperationModes.Inc
@@ -311,40 +364,40 @@ class cpu1802() extends Component {
                 when(StateCounter === 2){
                     RegOpMode := RegOperationModes.None
                 }
-                when(StateCounter === 4) {
+                when(StateCounter === 6) {
                     I := io.DataIn(7 downto 4).asUInt
                     N := io.DataIn(3 downto 0).asUInt
                 }
 
-                when(StateCounter === 5) {
+                when(StateCounter === 7) {
                     switch(I) {
                         is(0x0) { //Tested
                             when(N === 0){
                                 Idle := True
                             }elsewhen(N >= 1){ //LOAD VIA N
                                 ExeMode := ExecuteModes.LoadNoInc
-                                RegSelMode := mylib.RegSelectModes.NSel
+                                RegSelMode := RegSelectModes.NSel
                             }
                         }
                         is(0x1){ //Tested
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0x2){ //Tested
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0x3) {
                             ExeMode := ExecuteModes.Load
                         }
                         is(0x4){ //Tested - LOAD ADVANCE
                             ExeMode := ExecuteModes.Load
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0x5){ //STORE VIA N
                             ExeMode := ExecuteModes.WriteNoInc
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0x6){
-                            RegSelMode := mylib.RegSelectModes.XSel
+                            RegSelMode := RegSelectModes.XSel
                             when(N > 0 && N <= 7){
                                 ExeMode := ExecuteModes.Load
                             }elsewhen(N >= 9){
@@ -352,44 +405,44 @@ class cpu1802() extends Component {
                             }
                         }
                         is(0x7){
-                            when(N >= 0x0 && N <= 0x2) {
-                                RegSelMode := mylib.RegSelectModes.XSel
+                            when(N === 0x0 || N === 0x1 ||  N === 0x2) {
+                                RegSelMode := RegSelectModes.XSel
                                 ExeMode := ExecuteModes.Load
                             }elsewhen(N === 0x3){
-                                RegSelMode := mylib.RegSelectModes.XSel
+                                RegSelMode := RegSelectModes.XSel
                                 ExeMode := ExecuteModes.WriteDec
                             }elsewhen(N === 0x4 || N === 0x5 || N === 0x7) {
-                                RegSelMode := mylib.RegSelectModes.XSel
+                                RegSelMode := RegSelectModes.XSel
                                 ExeMode := ExecuteModes.LoadNoInc
                             }elsewhen(N === 0x8){
-                                RegSelMode := mylib.RegSelectModes.XSel
+                                RegSelMode := RegSelectModes.XSel
                                 ExeMode := ExecuteModes.WriteNoInc
                             }elsewhen(N === 0x9){
                                 T := Cat(X, P).asUInt
-                                RegSelMode := mylib.RegSelectModes.Stack2
+                                RegSelMode := RegSelectModes.Stack2
                                 ExeMode := ExecuteModes.WriteDec
                             }elsewhen(N === 0xC || N === 0xD || N === 0xF){
                                 ExeMode := ExecuteModes.Load
                             }
                         }
                         is(0x8){ //Tested
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0x9){ //Tested
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0xA){ //Tested
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0xB){ //Tested
-                            RegSelMode := mylib.RegSelectModes.NSel
+                            RegSelMode := RegSelectModes.NSel
                         }
                         is(0xC){
                             ExeMode := ExecuteModes.Load
                         }
                         is(0xF){
                             when(N <= 0x5 || N === 0x7){//
-                                RegSelMode := mylib.RegSelectModes.XSel
+                                RegSelMode := RegSelectModes.XSel
                                 ExeMode := ExecuteModes.LoadNoInc
                             } elsewhen(N >= 0x8 && N <= 0xd || N === 0xF) { //
                                 ExeMode := ExecuteModes.Load
@@ -406,6 +459,7 @@ class cpu1802() extends Component {
 
         val S1_Execute: State = new State {
             whenIsActive{
+                Reset := False
                 SC := 1
                 when(StateCounter === 1){
                     when(ExeMode === ExecuteModes.Load || ExeMode === ExecuteModes.Write || ExeMode === ExecuteModes.LongLoad)
@@ -442,30 +496,14 @@ class cpu1802() extends Component {
                 when(StateCounter === 5){
                     switch(I){
                         is(0x0){
-                            when(N >= 0x0) { //LOAD VIA N
+                            when(N =/= 0x0) { //LOAD VIA N
                                 DRegControl := DRegControlModes.BusIn
                             }
                         }
                         is(0x1) {RegOpMode := RegOperationModes.Inc} //INCREMENT REG N
                         is(0x2) {RegOpMode := RegOperationModes.Dec} //DECREMENT REG N
                         is(0x3) { //SHORT BRANCH
-                            when(N === 0x0) {
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N === 0x1 && Q){
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N === 0x2 && D === 0){
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N === 0x3 && DF){
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N >= 0x4 && N <= 0x7 && io.EF_n(N(1 downto 0))){
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N === 0x9 && !Q){
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N === 0xA && D =/= 0){
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N === 0xB && !DF){
-                                RegOpMode := RegOperationModes.LoadLower
-                            }elsewhen(N >= 0xC && !io.EF_n(N(1 downto 0))){
+                            when(Branch) {
                                 RegOpMode := RegOperationModes.LoadLower
                             }
                         }
@@ -478,8 +516,8 @@ class cpu1802() extends Component {
                             }
                         }
                         is(0x7){
-                            when(N === 0 || N === 1) {// RET and DIS
-                                IE := N.lsb
+                            when(N === 0x0 || N === 0x1) {// RET and DIS
+                                IE := !N.lsb
                                 X := Bus(7 downto 4)
                                 P := Bus(3 downto 0)
                             }elsewhen(N === 0x2) { //LOAD VIA X AND ADVANCE
@@ -520,22 +558,10 @@ class cpu1802() extends Component {
 
                         is(0xC){
                             when(ExeMode === ExecuteModes.Load) {
-                                when(N === 0x0) {
-                                    RegOpMode := RegOperationModes.LoadUpper
-                                } elsewhen (N === 0x1 && Q) {
-                                    RegOpMode := RegOperationModes.LoadUpper
-                                } elsewhen (N === 0x2 && D === 0) {
-                                    RegOpMode := RegOperationModes.LoadUpper
-                                } elsewhen (N === 0x3 && DF) {
-                                    RegOpMode := RegOperationModes.LoadUpper
-                                } elsewhen (N === 0x9 && !Q) {
-                                    RegOpMode := RegOperationModes.LoadUpper
-                                } elsewhen (N === 0xA && D =/= 0) {
-                                    RegOpMode := RegOperationModes.LoadUpper
-                                } elsewhen (N === 0xB && !DF) {
+                                when(Branch && !Skip) {
                                     RegOpMode := RegOperationModes.LoadUpper
                                 }
-                            }elsewhen(ExeMode === ExecuteModes.LongLoad){
+                            }elsewhen(ExeMode === ExecuteModes.LongLoad && !Skip){
                                 RegOpMode := RegOperationModes.LoadLower
                             }
                         }
@@ -581,26 +607,12 @@ class cpu1802() extends Component {
 
                     when(ExeMode === ExecuteModes.LongLoad || ExeMode === ExecuteModes.LongContinue){
                         ExeMode := ExecuteModes.None
-                    }elsewhen(I === 0xc && N === 0x4){
-                        ExeMode := ExecuteModes.LongContinue
-                    } elsewhen (I === 0xc && N === 0xD && !Q) {
-                        ExeMode := ExecuteModes.LongContinue
-                    } elsewhen (I === 0xc && N === 0xE && D =/= 0) {
-                        ExeMode := ExecuteModes.LongContinue
-                    } elsewhen (I === 0xc && N === 0xF && !DF) {
-                        ExeMode := ExecuteModes.LongContinue
-                    } elsewhen (I === 0xc && N === 0x5 && Q) {
-                        ExeMode := ExecuteModes.LongContinue
-                    } elsewhen (I === 0xc && N === 0x6 && D === 0) {
-                        ExeMode := ExecuteModes.LongContinue
-                    } elsewhen (I === 0xc && N === 0x7 && DF) {
-                        ExeMode := ExecuteModes.LongContinue
-                    } elsewhen (I === 0xc && N === 0xC && !IE) {
-                        ExeMode := ExecuteModes.LongContinue
-                    }elsewhen(I === 0xc && RegOpMode === RegOperationModes.LoadUpper){
+                    }elsewhen(I === 0xc && (RegOpMode === RegOperationModes.LoadUpper || (Skip && !Branch))){
                         ExeMode := ExecuteModes.LongLoad
+                    }elsewhen(I === 0xc && Branch){
+                        ExeMode := ExecuteModes.LongContinue
                     }
-                    RegSelMode := mylib.RegSelectModes.PSel
+                    RegSelMode := RegSelectModes.PSel
                     RegOpMode := RegOperationModes.None
                     DRegControl := DRegControlModes.None
                 }
@@ -631,7 +643,7 @@ class cpu1802() extends Component {
                 SC := 2
                 when(StateCounter === 0) {
                     BusControl := BusControlModes.DataIn
-                    RegSelMode := mylib.RegSelectModes.DMA0
+                    RegSelMode := RegSelectModes.DMA0
                 }
 
                 when(StateCounter === 1) {
@@ -649,7 +661,7 @@ class cpu1802() extends Component {
                             goto(S1_Execute)
                         }otherwise {
                             Idle := False
-                            RegSelMode := mylib.RegSelectModes.PSel
+                            RegSelMode := RegSelectModes.PSel
                             goto(S0_Fetch)
                         }
                     }
@@ -679,6 +691,6 @@ object cpu1802SpinalConfig extends SpinalConfig(
 //Generate the MyTopLevel's Verilog using the above custom configuration.
 object cpu1802Gen {
     def main(args: Array[String]) {
-        cpu1802SpinalConfig.generateVerilog(new cpu1802)
+        cpu1802SpinalConfig.generateVerilog(new cpu1802).printPruned
     }
 }
