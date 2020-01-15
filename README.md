@@ -23,17 +23,12 @@ The computer that led to the development of 1802 processor was called FRED.
 The assembly language for the 1802 process is easy to understand, and the data flow of the cpu is easy to follow.
 <br/>[<img src="https://cdn.discordapp.com/attachments/664986544284631040/666855126354624522/unknown.png" width="200" />](https://cdn.discordapp.com/attachments/664986544284631040/666855126354624522/unknown.png)<br><br>
 I found that using SpinalHDL made this a project fun to work on.  I have tried making this processor in VHDL in the past,
-but the amount of code and complexity just make it not worth the time.
-I highly suggest installing and playing with SpinalHDL, it very powerful and the code is maintainable, portable and reusable,
-where as HDL is not.
+but the amount of code and complexity just make it not worth the time. The Verilog code genrated by SpinalHDL for just the cpu is 1500 lines, and cpu1802.scala is 700 lines.
+I highly suggest installing and playing with SpinalHDL, it very powerful and the code is maintainable and reusable. 
   
 #### Features:
 * Able to load programs over the serial interface
-* Processor can send serial data with opcode OUT 1, and can check if the serial FIFO is full with opcode BN1
-
-#### TODO's:
-* Finish interrupt cycle.
-* Add support to allow CPU access to the RX serial data.     
+* Processor can send serial data with opcode OUT 1, and can check if the serial FIFO is full with opcode BN1  
 
 #### How setup your project:
 1. You will need to have [SpinalHDL](https://spinalhdl.github.io/SpinalDoc-RTD/SpinalHDL/Getting%20Started/getting_started.html) 
@@ -45,6 +40,10 @@ setup.
 5. You may have to edit the BlackBoxes for the PLL and Ram to match your targets.
 * or you can just generate the CPU core by itself to get the HDL/Verilog.
 * or copy the cpu1802.scala file to your own SpinalHDL project.
+
+#### TODOs:
+* Finish interrupt cycle.
+* Add support to allow CPU access to the RX serial data.   
 
 ## Pictures
 ![alt text](https://cdn.discordapp.com/attachments/664986544284631040/666808880688398336/gtkwave_dtyV29rqxF.webp "GTKWave Showing Timings")
