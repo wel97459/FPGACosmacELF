@@ -284,7 +284,7 @@ class cpu1802() extends Component {
         Bus := A(15 downto 8)
     } otherwise(Bus := 0)
 
-    //Check for a branch condition
+    //Check for a branch conditions
         when(N === 0x0 || (I === 0xC && N===0x4)) {
             Branch := True
         }elsewhen(N === 0x1 || (I === 0xC && N===0x5)){
@@ -374,6 +374,8 @@ class cpu1802() extends Component {
                         is(0x0) { //Tested
                             when(N === 0){
                                 Idle := True
+                                ExeMode := ExecuteModes.LoadNoInc
+                                RegSelMode := RegSelectModes.DMA0
                             }elsewhen(N >= 1){ //LOAD VIA N
                                 ExeMode := ExecuteModes.LoadNoInc
                                 RegSelMode := RegSelectModes.NSel
@@ -513,6 +515,8 @@ class cpu1802() extends Component {
                         is(0x6){
                             when(N === 0){
                                 RegOpMode := RegOperationModes.Inc
+                            }elsewhen(N >= 9){
+                                DRegControl := DRegControlModes.BusIn
                             }
                         }
                         is(0x7){
@@ -612,9 +616,15 @@ class cpu1802() extends Component {
                     }elsewhen(I === 0xc && Branch){
                         ExeMode := ExecuteModes.LongContinue
                     }
-                    RegSelMode := RegSelectModes.PSel
-                    RegOpMode := RegOperationModes.None
-                    DRegControl := DRegControlModes.None
+
+                    when(Idle){
+                        RegSelMode := RegSelectModes.DMA0
+                        ExeMode === ExecuteModes.LoadNoInc
+                    }otherwise {
+                        RegSelMode := RegSelectModes.PSel
+                        RegOpMode := RegOperationModes.None
+                        DRegControl := DRegControlModes.None
+                    }
                 }
 
                 when(StateCounter.willOverflow){
@@ -627,6 +637,9 @@ class cpu1802() extends Component {
                     }elsewhen(!io.DMA_Out_n){
                         ExeMode := ExecuteModes.DMA_Out
                         goto(S2_DMA)
+                    }elsewhen(!io.Interrupt_n && IE){
+                        ExeMode := ExecuteModes.None
+                        goto(S3_INT)
                     }elsewhen(Mode === CPUModes.Load) {
                         ExeMode := ExecuteModes.None
                     }otherwise{
@@ -672,9 +685,28 @@ class cpu1802() extends Component {
         val S3_INT: State = new State {
             whenIsActive {
                 SC := 3
+                when(StateCounter === 2) {
+                    T := Cat(X, P).asUInt
+                }
+
+                when(StateCounter === 3) {
+                    P := 1;
+                    X := 2;
+                    IE := False;
+                }
+
                 when(StateCounter.willOverflow){
                     Idle := False
-                    goto(S0_Fetch)
+                    when(!io.DMA_In_n) {
+                        ExeMode := ExecuteModes.DMA_In
+                        goto(S2_DMA)
+                    }elsewhen(!io.DMA_Out_n) {
+                        ExeMode := ExecuteModes.DMA_Out
+                        goto(S2_DMA)
+                    } otherwise {
+                        RegSelMode := RegSelectModes.PSel
+                        goto(S0_Fetch)
+                    }
                 }
             }
         }
@@ -684,7 +716,7 @@ class cpu1802() extends Component {
 
 //Define a custom SpinalHDL configuration with synchronous reset instead of the default asynchronous one. This configuration can be resued everywhere
 object cpu1802SpinalConfig extends SpinalConfig(
-    targetDirectory = "..",
+    targetDirectory = ".",
     defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)
 )
 

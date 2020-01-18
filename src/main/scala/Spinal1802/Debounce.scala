@@ -20,7 +20,7 @@ class Debounce(val depth: Int = 1, val delay: BigInt) extends ImplicitArea[Bits]
         input := inputVal
     }
 
-    def edge(): Bits = {
+    def rising(): Bits = {
         return ~value & debounce
     }
 
