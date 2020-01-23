@@ -14,7 +14,7 @@ The test program included uses the Floating Point Subroutines by Paul Wasserman.
 I copied the subroutine listings by hand into a hex editor and checked them by overlaying an image of the hex code I copied, with the scanned images.
 Included is a copy of the scans, and a copy of the binary file for the subroutines.  Along with the assemble code I wrote to test the CPU.
 
-If you would like to learn more about the 1802 processor here's a video about the designer [Josh Bensadon](https://www.youtube.com/watch?v=xwUrGlYN8eo), For information about the [Cosmac Elf](https://en.wikipedia.org/wiki/COSMAC_ELF) computer there's the wiki page.
+If you would like to learn more about the 1802 processor here's a video about the designer [Joseph Weisbecker](https://www.youtube.com/watch?v=xwUrGlYN8eo), For information about the [Cosmac Elf](https://en.wikipedia.org/wiki/COSMAC_ELF) computer there's the wiki page.
 
 #### Way build an RCA1802 processor
 Josh Bensadon had a goal when designing computers and that was they had to be fun.
