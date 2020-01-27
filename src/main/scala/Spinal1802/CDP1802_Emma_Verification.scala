@@ -8,8 +8,8 @@ import scala.util.Random
 import scala.util.control._
 import java.nio.file.{Files, Paths}
 
-case class Memory() {
-  val content = new Array[Int](4096);
+case class Memory(Size: Int) {
+  val content = new Array[Int](Size+1);
 
   def write(address: Long, data: Int): Unit = {
     content(address.toInt & 0xFFFF) = data & 0xff
@@ -63,7 +63,7 @@ case class TraceEmma(file: String) {
 object cpu1802_Testing_Sim {
   def main(args: Array[String]) {
     SimConfig.withWave.compile{
-      val dut = new cpu1802
+      val dut = new CDP1802
       dut.OP.simPublic()
       dut.D.simPublic()
       dut.Dlast.simPublic()
@@ -72,8 +72,6 @@ object cpu1802_Testing_Sim {
       dut.Bus.simPublic()
       dut.DF.simPublic()
       dut.DFLast.simPublic()
-      dut.R0.simPublic()
-      dut.R1.simPublic()
       dut.Idle.simPublic()
       dut
       dut
@@ -93,7 +91,7 @@ object cpu1802_Testing_Sim {
       dut.io.Wait_n #= true
       dut.io.Clear_n #= true
 
-      val ram = new Memory()
+      val ram = new Memory(4096)
       ram.loadBin(0x00000, "verification\\test_FPM_Verification.bin")
 
       val trace = new TraceEmma("verification\\test_FPM_Verification.log")

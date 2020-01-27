@@ -1,9 +1,8 @@
 package Spinal1802
 
-import spinal.core.{Bundle, _}
+import spinal.core._
 import spinal.lib.fsm.{EntryPoint, State, StateDelay, StateMachine}
-import spinal.lib.{Counter, Timeout}
-import spinal.lib.misc.Timer
+import spinal.lib.Counter
 
 object CPUModes extends SpinalEnum {
     val Load, Reset, Pause, Run = newElement()
@@ -29,7 +28,7 @@ object DRegControlModes extends SpinalEnum {
     val None, BusIn, ALU_OR, ALU_XOR, ALU_AND, ALU_RSH, ALU_LSH, ALU_RSHR, ALU_LSHR, ALU_Add, ALU_AddCarry, ALU_SubD, ALU_SubDBorrow, ALU_SubM, ALU_SubMBorrow  = newElement()
 }
 
-class cpu1802() extends Component {
+class CDP1802() extends Component {
     val io = new Bundle {
         val Wait_n = in Bool
         val Clear_n = in Bool
@@ -54,11 +53,11 @@ class cpu1802() extends Component {
     }
     //External
     val SC = Reg(Bits(2 bit)) //State Code Lines
-    val Q = Reg(Bool)
-    val TPA = Reg(Bool)
-    val TPB = Reg(Bool)
-    val MRD = Reg(Bool)
-    val MWR = Reg(Bool)
+    val Q = Reg(Bool)  init(False)
+    val TPA = Reg(Bool) init(False)
+    val TPB = Reg(Bool) init(False)
+    val MRD = Reg(Bool) init(True)
+    val MWR = Reg(Bool) init(True)
 
     //Internal
     val StateCounter = Counter(8)
@@ -105,23 +104,7 @@ class cpu1802() extends Component {
     val RSel = UInt(4 bit) //Registers Select
 
     //Scratch Pad Registers
-    val R0 = Reg(UInt(16 bits))
-    val R1 = Reg(UInt(16 bits))
-    val R2 = Reg(UInt(16 bits))
-    val R3 = Reg(UInt(16 bits))
-    val R4 = Reg(UInt(16 bits))
-    val R5 = Reg(UInt(16 bits))
-    val R6 = Reg(UInt(16 bits))
-    val R7 = Reg(UInt(16 bits))
-    val R8 = Reg(UInt(16 bits))
-    val R9 = Reg(UInt(16 bits))
-    val R10 = Reg(UInt(16 bits))
-    val R11 = Reg(UInt(16 bits))
-    val R12 = Reg(UInt(16 bits))
-    val R13 = Reg(UInt(16 bits))
-    val R14 = Reg(UInt(16 bits))
-    val R15 = Reg(UInt(16 bits))
-    val R = Vec(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R15)
+    val R = Vec(Reg(UInt(16 bits)), 16)
     A := R(RSel)
 
     //IO Assignments
@@ -330,7 +313,7 @@ class cpu1802() extends Component {
                 BusControl := BusControlModes.DataIn
                 Reset := True
                 Idle := False
-                IE := False
+                IE := True
                 outN := 0
                 T := 0
                 P := 0
@@ -632,9 +615,11 @@ class cpu1802() extends Component {
                     when(Mode === CPUModes.Reset) {
                         goto(S1_Reset)
                     }elsewhen(!io.DMA_In_n) {
+                        RegSelMode := RegSelectModes.DMA0
                         ExeMode := ExecuteModes.DMA_In
                         goto(S2_DMA)
                     }elsewhen(!io.DMA_Out_n){
+                        RegSelMode := RegSelectModes.DMA0
                         ExeMode := ExecuteModes.DMA_Out
                         goto(S2_DMA)
                     }elsewhen(!io.Interrupt_n && IE){
@@ -723,6 +708,6 @@ object cpu1802SpinalConfig extends SpinalConfig(
 //Generate the MyTopLevel's Verilog using the above custom configuration.
 object cpu1802Gen {
     def main(args: Array[String]) {
-        cpu1802SpinalConfig.generateVerilog(new cpu1802).printPruned
+        cpu1802SpinalConfig.generateVerilog(new CDP1802).printPruned
     }
 }

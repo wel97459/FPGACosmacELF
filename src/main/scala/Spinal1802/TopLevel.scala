@@ -31,23 +31,21 @@ class TopLevel extends Component {
             input = !io.reset_n || !pll.io.LOCKED,
             clockDomain = clk8Domain
         )
-
-
     }
 
     val core8 = new ClockingArea(clkCtrl.clk8Domain) {
 
         //Setup CPU
-        val cpu = new cpu1802()
+        val Cpu = new CDP1802()
         val step = Reg(Bool) init(False)
         val stepDMAIn = Reg(Bool) init(False)
         val DMADataIN = Reg(Bits(8 bit)) init(0)
         val interrupt = Reg(Bool) init(False)
         val interruptLast = Reg(Bool) init(False)
-        cpu.io.DMA_In_n := !stepDMAIn
-        cpu.io.DMA_Out_n := True
-        cpu.io.Interrupt_n := !(interrupt && !interruptLast)
-        cpu.io.EF_n(2) := True
+        Cpu.io.DMA_In_n := !stepDMAIn
+        Cpu.io.DMA_Out_n := True
+        Cpu.io.Interrupt_n := !(interrupt && !interruptLast)
+        Cpu.io.EF_n(2) := True
 
         //Setup switch debounce
         val debounce = Debounce(12, 50 ms)
@@ -57,20 +55,18 @@ class TopLevel extends Component {
         //set up Ram
         val ram4096 = new Ram("Ram",12, 8)
         ram4096.io.ena := True
-        ram4096.io.wea := ~(cpu.io.MWR & !debounce(8)).asBits
-        ram4096.io.dina := cpu.io.DataOut
-        ram4096.io.addra := cpu.io.Addr16(11 downto 0)
+        ram4096.io.wea := ~(Cpu.io.MWR & !debounce(8)).asBits
+        ram4096.io.dina := Cpu.io.DataOut
+        ram4096.io.addra := Cpu.io.Addr16(11 downto 0)
 
 
         //Setup seven segment display
-        val dlatch = Reg(Bool) init(False)
-        val alatch = Reg(Bool) init(False)
-        val SevenSegmentDriver = new SevenSegment("SevenSegment")
-        io.segdis := SevenSegmentDriver.io.SegDis
-        SevenSegmentDriver.io.L1 := !(cpu.io.MRD && cpu.io.MWR) && cpu.io.TPB
-        SevenSegmentDriver.io.L2 := !(cpu.io.MRD && cpu.io.MWR) && cpu.io.TPB
-        SevenSegmentDriver.io.Dis1 := cpu.io.DataOut
-        SevenSegmentDriver.io.Dis2 := cpu.io.Addr16(7 downto 0)
+        val SevenSegment = SevenSegmentDriver(3, 100 us)
+        io.segdis := SevenSegment
+        when(!(Cpu.io.MRD && Cpu.io.MWR) && Cpu.io.TPB){
+            SevenSegment.setDigits(0, Cpu.io.DataOut.asUInt)
+        }
+        SevenSegment.setDigits(2, Cpu.io.Addr16(7 downto 0).asUInt)
 
 
         //Setup RX UART
@@ -83,7 +79,7 @@ class TopLevel extends Component {
         UartRx.io.en_16_x_baud := True
         serialDataRX := UartRx.io.data_out
         serialDataPresent := UartRx.io.buffer_data_present
-        cpu.io.EF_n(1) := UartRx.io.buffer_data_present
+        Cpu.io.EF_n(1) := UartRx.io.buffer_data_present
         UartRx.io.buffer_reset := clkCtrl.clk8Domain.reset | debounce.falling()(11)
         UartRx.io.serial_in := io.avr_tx
         UartRx.io.buffer_read := buffer_read & !buffer_read_last
@@ -93,45 +89,45 @@ class TopLevel extends Component {
         val DMADataOut = Reg(Bits(8 bit)) init(0)
         val UartTx = new uart_tx6("uart_tx6")
         UartTx.io.en_16_x_baud := True
-        UartTx.io.data_in := cpu.io.DataOut
+        UartTx.io.data_in := Cpu.io.DataOut
         UartTx.io.buffer_write := serialDataSend
-        cpu.io.EF_n(0) := UartTx.io.buffer_full
+        Cpu.io.EF_n(0) := UartTx.io.buffer_full
         UartTx.io.buffer_reset := clkCtrl.clk8Domain.reset
         io.avr_rx := UartTx.io.serial_out
-        serialDataSend := (!cpu.io.MRD && cpu.io.N === 1).fall()
+        serialDataSend := (!Cpu.io.MRD && Cpu.io.N === 1).fall()
 
         //Handel Ram read and write logic
-        when(cpu.io.SC === 2 && !debounce(8)) {
-            cpu.io.DataIn := DMADataIN
-        }elsewhen(cpu.io.SC === 2 && cpu.io.N === 0) {
-            cpu.io.DataIn := ram4096.io.douta
-        }elsewhen(!cpu.io.MWR && cpu.io.N === 2){
-            cpu.io.DataIn := debounce(7 downto 0)
-        }elsewhen(!cpu.io.MWR && cpu.io.N === 1){
-            cpu.io.DataIn := serialDataRX
-        } otherwise(cpu.io.DataIn := ram4096.io.douta)
+        when(Cpu.io.SC === 2 && !debounce(8)) {
+            Cpu.io.DataIn := DMADataIN
+        }elsewhen(Cpu.io.SC === 2 && Cpu.io.N === 0) {
+            Cpu.io.DataIn := ram4096.io.douta
+        }elsewhen(!Cpu.io.MWR && Cpu.io.N === 2){
+            Cpu.io.DataIn := debounce(7 downto 0)
+        }elsewhen(!Cpu.io.MWR && Cpu.io.N === 1){
+            Cpu.io.DataIn := serialDataRX
+        } otherwise(Cpu.io.DataIn := ram4096.io.douta)
 
 
         //Output the upper byte of the Address to the LEDs
-        io.LEDs := Cat(UartRx.io.buffer_data_present, buffer_read & !buffer_read_last, cpu.io.Addr16(13 downto 8))
+        io.LEDs := Cat(UartRx.io.buffer_data_present, buffer_read & !buffer_read_last, Cpu.io.Addr16(13 downto 8))
 
 
         //Switch logic of the Cosmac Elf
 
         //Control logic for the Wait and Clear lines
         when(debounce(10)){
-            cpu.io.Wait_n := True
-        } otherwise(cpu.io.Wait_n := step)
+            Cpu.io.Wait_n := True
+        } otherwise(Cpu.io.Wait_n := step)
 
-        cpu.io.Clear_n := debounce(11)
+        Cpu.io.Clear_n := debounce(11)
 
         //So we can read the write button.
-        cpu.io.EF_n(3) := debounce(9)
+        Cpu.io.EF_n(3) := debounce(9)
 
         //Single step operation
         when(debounce.rising()(9) && debounce(11)){
             step := True
-        }elsewhen(cpu.io.SC(0).edge()){
+        }elsewhen(Cpu.io.SC(0).edge()){
             step := False
         }
 
@@ -145,9 +141,9 @@ class TopLevel extends Component {
             DMADataIN := serialDataRX
             stepDMAIn := True
             buffer_read := True
-        }elsewhen(!cpu.io.MWR && cpu.io.N === 1 && cpu.io.TPB){
+        }elsewhen(!Cpu.io.MWR && Cpu.io.N === 1 && Cpu.io.TPB){
             buffer_read := True
-        }elsewhen(cpu.io.SC === 2) {
+        }elsewhen(Cpu.io.SC === 2) {
             //Reset DMA IN line and the serial read line
             stepDMAIn := False
             buffer_read:= False
@@ -161,7 +157,7 @@ class TopLevel extends Component {
             interrupt := True
         }elsewhen(debounce(11) && serialDataPresent) {
             interrupt := True
-        }elsewhen(cpu.io.SC === 3) {
+        }elsewhen(Cpu.io.SC === 3) {
             interrupt := False
         }
     }
