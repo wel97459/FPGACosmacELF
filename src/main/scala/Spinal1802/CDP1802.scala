@@ -119,11 +119,9 @@ class CDP1802() extends Component {
     io.Addr16 := Addr16.asBits
 
     //Counter Control
-
     when(StartCounting && Mode =/= CPUModes.Pause) {
         StateCounter.increment()
     }
-
 
     //Mode Logic
     when(!io.Clear_n && !io.Wait_n) {
@@ -155,7 +153,9 @@ class CDP1802() extends Component {
     } otherwise (RSel := P)
 
     //Register Array Operation Logic
-    when(RegOpMode === RegOperationModes.Inc){
+	 when(Reset){
+        R(0).setAllTo(false)
+    }elsewhen(RegOpMode === RegOperationModes.Inc){
         R(RSel) := A + 1
     } elsewhen (RegOpMode === RegOperationModes.Dec) {
         R(RSel) := A - 1
@@ -163,15 +163,13 @@ class CDP1802() extends Component {
         R(RSel) := Cat (Bus,R(RSel)(7 downto 0).asBits).asUInt
     } elsewhen (RegOpMode === RegOperationModes.LoadLower) {
         R(RSel) := Cat (R(RSel)(15 downto 8).asBits,Bus).asUInt
-    } elsewhen(Reset){
-        R(0).setAllTo(false)
     }
 
     //Address Logic
-    when(StateCounter === 0) {
-        Addr := A;
-    }elsewhen(Reset){
+	  when(Reset){
         Addr := 0;
+    }elsewhen(StateCounter === 0) {
+        Addr := A;
     }
 
     when(StateCounter >= 1 && StateCounter <= 2) {
@@ -209,7 +207,10 @@ class CDP1802() extends Component {
     ALU_SubDB := ALU_SubD - Cat(B"8'h00", !DF).asUInt
     ALU_SubMB := ALU_SubM - Cat(B"8'h00", !DF).asUInt
 
-    when(DRegControl === DRegControlModes.BusIn){
+	when(Reset){
+        DF := False
+        D := 0	
+    }elsewhen(DRegControl === DRegControlModes.BusIn){
         D := Bus
     }elsewhen(DRegControl === DRegControlModes.ALU_OR){
         D := Bus | D
@@ -247,9 +248,6 @@ class CDP1802() extends Component {
     }elsewhen(DRegControl === DRegControlModes.ALU_SubMBorrow){
         DF := !ALU_SubMB.msb
         D := ALU_SubMB.resize(8)
-    }elsewhen(Reset){
-        DF := False
-        D := 0
     }
 
     //Data Bus Logic
@@ -336,6 +334,11 @@ class CDP1802() extends Component {
             whenIsActive{
                 Reset := False
                 SC := 0
+				
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}
+				
                 when(StateCounter === 0) {
                     ExeMode := ExecuteModes.None
                     BusControl := BusControlModes.DataIn
@@ -437,7 +440,7 @@ class CDP1802() extends Component {
                 }
 
                 when(StateCounter.willOverflow){
-                    goto(S1_Execute)
+					goto(S1_Execute)
                 }
             }
         }
@@ -446,6 +449,9 @@ class CDP1802() extends Component {
             whenIsActive{
                 Reset := False
                 SC := 1
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}
                 when(StateCounter === 1){
                     when(ExeMode === ExecuteModes.Load || ExeMode === ExecuteModes.Write || ExeMode === ExecuteModes.LongLoad)
                     {
@@ -612,9 +618,7 @@ class CDP1802() extends Component {
 
                 when(StateCounter.willOverflow){
                     outN := 0
-                    when(Mode === CPUModes.Reset) {
-                        goto(S1_Reset)
-                    }elsewhen(!io.DMA_In_n) {
+                    when(!io.DMA_In_n) {
                         RegSelMode := RegSelectModes.DMA0
                         ExeMode := ExecuteModes.DMA_In
                         goto(S2_DMA)
@@ -639,6 +643,10 @@ class CDP1802() extends Component {
         val S2_DMA: State = new State {
             whenIsActive {
                 SC := 2
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}
+				
                 when(StateCounter === 0) {
                     BusControl := BusControlModes.DataIn
                     RegSelMode := RegSelectModes.DMA0
@@ -670,6 +678,10 @@ class CDP1802() extends Component {
         val S3_INT: State = new State {
             whenIsActive {
                 SC := 3
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}
+				
                 when(StateCounter === 2) {
                     T := Cat(X, P).asUInt
                 }
