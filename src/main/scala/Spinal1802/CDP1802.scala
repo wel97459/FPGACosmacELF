@@ -209,7 +209,7 @@ class CDP1802() extends Component {
 
 	when(Reset){
         DF := False
-        D := 0	
+        D := 0
     }elsewhen(DRegControl === DRegControlModes.BusIn){
         D := Bus
     }elsewhen(DRegControl === DRegControlModes.ALU_OR){
@@ -334,11 +334,11 @@ class CDP1802() extends Component {
             whenIsActive{
                 Reset := False
                 SC := 0
-				
+
 				when(Mode === CPUModes.Reset) {
                     goto(S1_Reset)
 				}
-				
+
                 when(StateCounter === 0) {
                     ExeMode := ExecuteModes.None
                     BusControl := BusControlModes.DataIn
@@ -646,7 +646,7 @@ class CDP1802() extends Component {
 				when(Mode === CPUModes.Reset) {
                     goto(S1_Reset)
 				}
-				
+
                 when(StateCounter === 0) {
                     BusControl := BusControlModes.DataIn
                     RegSelMode := RegSelectModes.DMA0
@@ -681,7 +681,7 @@ class CDP1802() extends Component {
 				when(Mode === CPUModes.Reset) {
                     goto(S1_Reset)
 				}
-				
+
                 when(StateCounter === 2) {
                     T := Cat(X, P).asUInt
                 }
@@ -712,14 +712,14 @@ class CDP1802() extends Component {
 
 
 //Define a custom SpinalHDL configuration with synchronous reset instead of the default asynchronous one. This configuration can be resued everywhere
-object cpu1802SpinalConfig extends SpinalConfig(
+object CDP1802SpinalConfig extends SpinalConfig(
     targetDirectory = ".",
     defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)
 )
 
 //Generate the MyTopLevel's Verilog using the above custom configuration.
-object cpu1802Gen {
+object CDP1802Gen {
     def main(args: Array[String]) {
-        cpu1802SpinalConfig.generateVerilog(new CDP1802).printPruned
+        CDP1802SpinalConfig.generateVerilog(new CDP1802).printPruned
     }
 }
