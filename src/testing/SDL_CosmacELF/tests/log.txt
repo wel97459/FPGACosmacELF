@@ -1,0 +1,235 @@
+
+
+-=== Loaded 1802 Assembler Definition ===-
+
+List of all call address's
+fpm_add:                  0400
+fpm_sub:                  029E
+fpm_mult:                 02B7
+fpm_div:                  034C
+fpm_02AC:                 03C3
+fpm_02OP:                 03D9
+fpm_sqroot:               0773
+fpm_D2AC:                 0500
+fpm_AC2D:                 0598
+fpm_V2VC:                 06DA
+fpm_V2OP:                 0705
+fpm_AC2V:                 072C
+fpm_load:                 0754
+init:                     0000
+ramEnd:                   00FF
+exita:                    0017
+call:                     0018
+exitr:                    0027
+return:                   0028
+main:                     0034
+loop:                     006E
+dteststring:              0A00
+dtest:                    0A03
+puts:                     0A11
+puts_full:                0A16
+D2String:                 0A1D
+load_d:                   0A6D
+------------------------------
+
+
+init:
+	0000: 90           ghi r0              1
+	0001: B3           phi r3              1
+	0002: B6           phi r6              1
+	0003: F834         ldi low main        2
+	0005: A3           plo r3              1
+	0006: A6           plo r6              1
+	0007: 90           ghi r0              1
+	0008: B4           phi r4              1
+	0009: F818         ldi low call        2
+	000B: A4           plo r4              1
+	000C: 90           ghi r0              1
+	000D: B5           phi r5              1
+	000E: F828         ldi low return      2
+	0010: A5           plo r5              1
+	0011: F800         ldi high ramEnd     2
+	0013: B2           phi r2              1
+	0014: F8FF         ldi low ramEnd      2
+	0016: A2           plo r2              1
+
+exita:
+	0017: D3           sep r3              1
+
+call:
+	0018: E2           sex r2              1
+	0019: 96           ghi r6              1
+	001A: 73           stxd                1
+	001B: 86           glo r6              1
+	001C: 73           stxd                1
+	001D: 93           ghi r3              1
+	001E: B6           phi r6              1
+	001F: 83           glo r3              1
+	0020: A6           plo r6              1
+	0021: 46           lda r6              1
+	0022: B3           phi r3              1
+	0023: 46           lda r6              1
+	0024: A3           plo r3              1
+	0025: 3017         br low exita        2
+
+exitr:
+	0027: D3           sep r3              1
+
+return:
+	0028: E2           sex r2              1
+	0029: 96           ghi r6              1
+	002A: B3           phi r3              1
+	002B: 86           glo r6              1
+	002C: A3           plo r3              1
+	002D: 12           inc r2              1
+	002E: 72           ldxa                1
+	002F: A6           plo r6              1
+	0030: F0           ldx                 1
+	0031: B6           phi r6              1
+	0032: 3027         br low exitr        2
+
+main:
+	0034: D4           sep r4              1
+	0035: 0A6D         db load_d           2
+	0037: 34302D303030303331312Bdbrevstrne "+1130000-04"11
+	0042: D4           sep r4              1
+	0043: 0500         db fpm_D2AC         2
+	0045: D4           sep r4              1
+	0046: 072C         db fpm_AC2V         2
+	0048: 01           db 01               1
+	0049: D4           sep r4              1
+	004A: 0A6D         db load_d           2
+	004C: 34302D303030303535332Bdbrevstrne "+3550000-04"11
+	0057: D4           sep r4              1
+	0058: 0500         db fpm_D2AC         2
+	005A: D4           sep r4              1
+	005B: 0705         db fpm_V2OP         2
+	005D: 01           db 01               1
+	005E: D4           sep r4              1
+	005F: 034C         db fpm_div          2
+	0061: D4           sep r4              1
+	0062: 0598         db fpm_AC2D         2
+	0064: D4           sep r4              1
+	0065: 0A1D         db D2String         2
+	0067: 0A03         db dtest            2
+	0069: D4           sep r4              1
+	006A: 0A11         db puts             2
+	006C: 0A00         db dteststring      2
+
+loop:
+	006E: 306E         br low loop         2
+	0070: long         space 0100          144
+	0100: long         load FPM.bin        2304
+
+dteststring:
+	0A00: 443A20       dbstrne "D: "       3
+
+dtest:
+	0A03: 0000000000000000000000db 00 00 00 00 00 00 00 00 00 00 00 11
+	0A0E: 0A0D00       db 0a 0d 00         3
+
+puts:
+	0A11: 46           lda r6              1
+	0A12: BA           phi ra              1
+	0A13: 46           lda r6              1
+	0A14: AA           plo ra              1
+	0A15: EA           sex ra              1
+
+puts_full:
+	0A16: 3C16         bn1 low puts_full   2
+	0A18: 61           out n1              1
+	0A19: F0           ldx                 1
+	0A1A: 3A16         bnz low puts_full   2
+	0A1C: D5           sep r5              1
+
+D2String:
+	0A1D: 46           lda r6              1
+	0A1E: BB           phi rb              1
+	0A1F: 46           lda r6              1
+	0A20: AB           plo rb              1
+	0A21: F801         ldi 01              2
+	0A23: BA           phi ra              1
+	0A24: F814         ldi 14              2
+	0A26: AA           plo ra              1
+	0A27: EA           sex ra              1
+	0A28: 72           ldxa                1
+	0A29: 5B           str rb              1
+	0A2A: 1B           inc rb              1
+	0A2B: 72           ldxa                1
+	0A2C: FA0F         ani 0f              2
+	0A2E: FC30         adi 30              2
+	0A30: 5B           str rb              1
+	0A31: 1B           inc rb              1
+	0A32: 72           ldxa                1
+	0A33: FA0F         ani 0f              2
+	0A35: FC30         adi 30              2
+	0A37: 5B           str rb              1
+	0A38: 1B           inc rb              1
+	0A39: 72           ldxa                1
+	0A3A: FA0F         ani 0f              2
+	0A3C: FC30         adi 30              2
+	0A3E: 5B           str rb              1
+	0A3F: 1B           inc rb              1
+	0A40: 72           ldxa                1
+	0A41: FA0F         ani 0f              2
+	0A43: FC30         adi 30              2
+	0A45: 5B           str rb              1
+	0A46: 1B           inc rb              1
+	0A47: 72           ldxa                1
+	0A48: FA0F         ani 0f              2
+	0A4A: FC30         adi 30              2
+	0A4C: 5B           str rb              1
+	0A4D: 1B           inc rb              1
+	0A4E: 72           ldxa                1
+	0A4F: FA0F         ani 0f              2
+	0A51: FC30         adi 30              2
+	0A53: 5B           str rb              1
+	0A54: 1B           inc rb              1
+	0A55: 72           ldxa                1
+	0A56: FA0F         ani 0f              2
+	0A58: FC30         adi 30              2
+	0A5A: 5B           str rb              1
+	0A5B: 1B           inc rb              1
+	0A5C: 72           ldxa                1
+	0A5D: 5B           str rb              1
+	0A5E: 1B           inc rb              1
+	0A5F: 72           ldxa                1
+	0A60: FA0F         ani 0f              2
+	0A62: FC30         adi 30              2
+	0A64: 5B           str rb              1
+	0A65: 1B           inc rb              1
+	0A66: 72           ldxa                1
+	0A67: FA0F         ani 0f              2
+	0A69: FC30         adi 30              2
+	0A6B: 5B           str rb              1
+	0A6C: D5           sep r5              1
+
+load_d:
+	0A6D: F801         ldi 01              2
+	0A6F: BA           phi ra              1
+	0A70: F81E         ldi 1e              2
+	0A72: AA           plo ra              1
+	0A73: EA           sex ra              1
+	0A74: 46           lda r6              1
+	0A75: 73           stxd                1
+	0A76: 46           lda r6              1
+	0A77: 73           stxd                1
+	0A78: 46           lda r6              1
+	0A79: 73           stxd                1
+	0A7A: 46           lda r6              1
+	0A7B: 73           stxd                1
+	0A7C: 46           lda r6              1
+	0A7D: 73           stxd                1
+	0A7E: 46           lda r6              1
+	0A7F: 73           stxd                1
+	0A80: 46           lda r6              1
+	0A81: 73           stxd                1
+	0A82: 46           lda r6              1
+	0A83: 73           stxd                1
+	0A84: 46           lda r6              1
+	0A85: 73           stxd                1
+	0A86: 46           lda r6              1
+	0A87: 73           stxd                1
+	0A88: 46           lda r6              1
+	0A89: 73           stxd                1
+	0A8A: D5           sep r5              1
