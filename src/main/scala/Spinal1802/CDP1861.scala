@@ -109,6 +109,130 @@ class CDP1861 extends Component{
             io.DMAO := False
         }otherwise(io.DMAO := True)
 
+        //Video shift Register
+        val VideoShiftReg = Reg(Bits(8 bit)) init (0)
+        when(io.SC === 2 && io.TPB) {
+            VideoShiftReg := io.DataIn
+        } elsewhen (!io.Reset_) {
+            VideoShiftReg := 0x00
+        } otherwise (VideoShiftReg := VideoShiftReg |<< 1)
+
+        io.Video := VideoShiftReg.msb
+    }
+}
+
+//Define a custom SpinalHDL configuration with synchronous reset instead of the default asynchronous one. This configuration can be resued everywhere
+object CDP1861SpinalConfig extends SpinalConfig(
+    targetDirectory = ".",
+    defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)
+)
+
+//Generate the MyTopLevel's Verilog using the above custom configuration.
+object CDP1861Gen {
+    def main(args: Array[String]) {
+        CDP1861SpinalConfig.generateVerilog(new CDP1861).printPruned
+    }
+}
+
+class CDP1861_Div10 extends Component{
+    val io = new Bundle {
+        val Reset_ = in Bool
+        val Disp_On = in Bool
+        val Disp_Off = in Bool
+        val TPA = in Bool
+        val TPB = in Bool
+        val SC = in Bits (2 bit)
+        val DataIn = in Bits (8 bit)
+
+        val Clear = out Bool
+        val INT = out Bool
+        val DMAO = out Bool
+        val EFx = out Bool
+
+        val Video = out Bool
+        val CompSync_ = out Bool
+        val Locked = out Bool
+    }
+
+    io.Clear := RegNext(io.Reset_)
+
+    // configure the clock domain
+    val InvertedClockDomain = ClockDomain(
+        clock  = clockDomain.clock,
+        reset  = clockDomain.reset,
+        config = ClockDomainConfig(
+            clockEdge        = FALLING,
+            resetKind        = ASYNC,
+            resetActiveLevel = HIGH
+        )
+    )
+
+    //Line and Machine Cycle counter
+    val lineCounter = Counter(263)
+    val MCycleCounter = Counter(28)
+    val syncCounter = Counter(12)
+
+    when(!io.Reset_){
+        lineCounter.clear()
+        syncCounter.clear()
+        MCycleCounter.clear()
+
+    }
+
+    when(syncCounter =/= 0 || (MCycleCounter === 26 && lineCounter === 0 && io.TPA && io.SC =/= 0)){
+        syncCounter.increment()
+    }
+
+    io.Locked := syncCounter === 0
+
+    when((io.TPB || io.TPA) && syncCounter === 0) {
+        MCycleCounter.increment()
+    }
+
+    when(MCycleCounter.willOverflow) {
+        lineCounter.increment()
+    }
+
+    //Display On flag for controlling the DMA and Interrupt output
+    val DisplayOn = Reg(Bool) init(False)
+    when(io.Disp_On.rise()) {
+        DisplayOn := True
+    } elsewhen (io.Disp_On.rise() || !io.Reset_) {
+        DisplayOn := False
+    }
+
+    //Flag Logic
+    when((lineCounter === 78 || lineCounter === 79) && DisplayOn){
+        io.INT := False
+    }otherwise(io.INT := True)
+
+    when((lineCounter >= 76 && lineCounter <= 79) || (lineCounter >= 205 && lineCounter <= 207)){
+        io.EFx := False
+    }otherwise(io.EFx := True)
+
+    val InvertedArea = new ClockingArea(InvertedClockDomain) {
+
+        //Sync Timing
+        val VSync = Bool()
+        val HSync = Bool()
+
+        io.CompSync_ := !(HSync ^ VSync)
+
+        //VSync Logic
+        when(lineCounter >= 16) {
+            VSync := True
+        } otherwise (VSync := False)
+
+        //HSync Logic
+        when(MCycleCounter >= 3 | (MCycleCounter === 2 && io.TPA)) {
+            HSync := True
+        } otherwise (HSync := False)
+
+        //DMA Logic
+        when(lineCounter >= 80 && lineCounter <= 207 && ((MCycleCounter === 2 && io.TPA) || MCycleCounter >= 3 && MCycleCounter <= 19) && DisplayOn){
+            io.DMAO := False
+        }otherwise(io.DMAO := True)
+
         val areaDiv10 = new SlowArea(10) {
             //Video shift Register
             val VideoShiftReg = Reg(Bits(8 bit)) init (0)
@@ -159,8 +283,6 @@ class CosmacVIP extends Component {
 }
 
 object VIP_Test {
-
-
     def main(args: Array[String]) {
         SimConfig.withWave.compile{
             val dut = new CosmacVIP()
