@@ -52,7 +52,6 @@ class CDP1861 extends Component{
         lineCounter.clear()
         syncCounter.clear()
         MCycleCounter.clear()
-
     }
 
     when(syncCounter =/= 0 || (MCycleCounter === 26 && lineCounter === 0 && io.TPA && io.SC =/= 0)){
@@ -73,7 +72,7 @@ class CDP1861 extends Component{
     val DisplayOn = Reg(Bool) init(False)
     when(io.Disp_On.rise()) {
         DisplayOn := True
-    } elsewhen (io.Disp_On.rise() || !io.Reset_) {
+    } elsewhen (io.Disp_Off.rise() || !io.Reset_) {
         DisplayOn := False
     }
 
@@ -197,7 +196,7 @@ class CDP1861_Div10 extends Component{
     val DisplayOn = Reg(Bool) init(False)
     when(io.Disp_On.rise()) {
         DisplayOn := True
-    } elsewhen (io.Disp_On.rise() || !io.Reset_) {
+    } elsewhen (io.Disp_Off.rise() || !io.Reset_) {
         DisplayOn := False
     }
 
