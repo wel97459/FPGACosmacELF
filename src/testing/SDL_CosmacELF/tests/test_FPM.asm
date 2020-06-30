@@ -22,7 +22,7 @@ init:
     ldi low main
     plo r3
 	plo r6
-	
+
 --setup call
     ghi r0
     phi r4
@@ -96,36 +96,36 @@ main:
 	sep r4
 	db load_d
 	dbrevstrne "+1130000-04"
-	
+
 	sep r4
 	db fpm_D2AC
-	
+
 	sep r4
 	db fpm_AC2V
 	db 01
-	
-	
+
+
 	sep r4
 	db load_d
 	dbrevstrne "+3550000-04"
-	
+
 	sep r4
 	db fpm_D2AC
-	
+
 	sep r4
 	db fpm_V2OP
 	db 01
 
 	sep r4
 	db fpm_div
-	
+
 	sep r4
 	db fpm_AC2D
 
 	sep r4
 	db D2String
 	db dtest
-	
+
 	sep r4
 	db puts
 	db dteststring
@@ -139,7 +139,7 @@ load FPM.bin
 dteststring:
 dbstrne "D: "
 dtest:
-db 00 00 00 00 00 00 00 00 00 00 00 
+db 00 00 00 00 00 00 00 00 00 00 00
 db 0a 0d 00
 
 puts:
@@ -149,11 +149,11 @@ puts:
     lda r6
     plo ra
 	sex ra
-	
+
 puts_full:
 
 	bn1 low puts_full
-	out n1
+	out n2
 	ldx
 	bnz low puts_full
 sep r5
@@ -163,74 +163,74 @@ D2String:
 	phi rb
 	lda r6
 	plo rb
-	
+
 	ldi 01
 	phi ra
 	ldi 14
 	plo ra
 	sex ra
-	
+
 	ldxa
 	str rb
 	inc rb
-	
+
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-	
-	inc rb
-	ldxa
-	ani 0f
-	adi 30
-	str rb
-	
+
 	inc rb
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-	
+
 	inc rb
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-	
+
 	inc rb
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-	
+
 	inc rb
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-	
+
 	inc rb
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-	
-	inc rb
-	ldxa
-	str rb
-	
+
 	inc rb
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-	
+
+	inc rb
+	ldxa
+	str rb
+
 	inc rb
 	ldxa
 	ani 0f
 	adi 30
 	str rb
-sep r5 
+
+	inc rb
+	ldxa
+	ani 0f
+	adi 30
+	str rb
+sep r5
 
 load_d:
 	ldi 01
@@ -238,7 +238,7 @@ load_d:
 	ldi 1e
 	plo ra
 	sex ra
-	
+
 	lda r6 --de low
 	stxd
 	lda r6 --de high
