@@ -62,7 +62,7 @@ class TopLevel extends Component {
 
         //Setup seven segment display
         val SevenSegment = SevenSegmentDriver(3, 100 us)
-        io.segdis := SevenSegment
+        io.segdis := Cat(SevenSegment(9 downto 8), SevenSegment(6 downto 0))
         when(!(Cpu.io.MRD && Cpu.io.MWR) && Cpu.io.TPB){
             SevenSegment.setDigits(0, Cpu.io.DataOut.asUInt)
         }
