@@ -14,12 +14,12 @@ include_directories(obj_dir /usr/local/share/verilator/include)
 add_library(cdp1802_lib SHARED
   /usr/local/share/verilator/include/verilated.cpp
 )
-verilate(cdp1802_lib SOURCES ../../../CDP1802.v OPT_FAST)
+verilate(cdp1802_lib SOURCES ../../../CDP1802.v)
 
 add_library(cdp1861_lib SHARED
   /usr/local/share/verilator/include/verilated.cpp
 )
-verilate(cdp1861_lib SOURCES ../../../CDP1861.v OPT_FAST)
+verilate(cdp1861_lib SOURCES ../../../CDP1861.v)
 
 add_executable(${CMAKE_PROJECT_NAME}
   CosmacELF.cpp
