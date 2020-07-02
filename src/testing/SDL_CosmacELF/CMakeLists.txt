@@ -4,6 +4,10 @@ cmake_minimum_required(VERSION 3.10)
 SET(CMAKE_CXX_STANDARD 11)
 project(cosmacELF)
 
+execute_process(COMMAND sbt "runMain Spinal1802.CDP1802Gen" WORKING_DIRECTORY ../../../)
+
+execute_process(COMMAND sbt "runMain Spinal1802.CDP1861Gen" WORKING_DIRECTORY ../../../)
+
 find_package(verilator HINTS $ENV{VERILATOR_ROOT})
 find_package(SDL2 REQUIRED)
 
