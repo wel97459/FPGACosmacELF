@@ -11,8 +11,16 @@
 #include "VCDP1802.h"
 #include "VCDP1861.h"
 
-#define RAM_SIZE 8192
+#define RAM_SIZE 8192 * 2
 //#define TRACE
+
+//Bit functions
+#define BIT_SET(X, Y) 				*(X) |= (1<<Y)
+#define BIT_CLEAR(X, Y) 			*(X) &= ~(1<<Y)
+#define BIT_CHECK(X, Y)				(*(X) & (1<<Y))
+#define BIT_TOGGLE(X, Y)			*(X) ^= (1<<Y)
+#define SHIFT(X)                    (1<<X)
+#define SHIFT_MSB(X)                (0x8000>>X)
 
 using namespace std;
 //SDL renderer and single font (leaving global for simplicity)
@@ -58,6 +66,8 @@ void handleMouse(int x, int y)
 			return;
 }
 
+SData Keys = 0;
+
 int handleInput()
 {
 	SDL_Event event;
@@ -67,14 +77,99 @@ int handleInput()
 		switch (event.type) {
 		case SDL_QUIT:
 			return -1;
+
 		case SDL_KEYDOWN:
 			if (event.key.keysym.sym == SDLK_ESCAPE)
 				return -1;
+
 		case SDL_MOUSEBUTTONDOWN:
 			handleMouse(event.button.x, event.button.y);
 			break;
 		}
 	}
+
+	const Uint8* keystates = SDL_GetKeyboardState(NULL);
+
+    if (keystates[SDL_SCANCODE_X])
+        BIT_SET(&Keys, 0);
+    else
+        BIT_CLEAR(&Keys, 0);
+
+    if (keystates[SDL_SCANCODE_1])
+        BIT_SET(&Keys, 1);
+    else
+        BIT_CLEAR(&Keys, 1);
+
+    if (keystates[SDL_SCANCODE_2])
+        BIT_SET(&Keys, 2);
+    else
+        BIT_CLEAR(&Keys, 2);
+
+    if (keystates[SDL_SCANCODE_3])
+        BIT_SET(&Keys, 3);
+    else
+        BIT_CLEAR(&Keys, 3);
+
+    if (keystates[SDL_SCANCODE_Q])
+        BIT_SET(&Keys, 4);
+    else
+        BIT_CLEAR(&Keys, 4);
+
+    if (keystates[SDL_SCANCODE_W])
+        BIT_SET(&Keys, 5);
+    else
+        BIT_CLEAR(&Keys, 5);
+
+    if (keystates[SDL_SCANCODE_E])
+        BIT_SET(&Keys, 6);
+    else
+        BIT_CLEAR(&Keys, 6);
+
+    if (keystates[SDL_SCANCODE_A])
+        BIT_SET(&Keys, 7);
+    else
+        BIT_CLEAR(&Keys, 7);
+
+    if (keystates[SDL_SCANCODE_S])
+        BIT_SET(&Keys, 8);
+    else
+        BIT_CLEAR(&Keys, 8);
+
+    if (keystates[SDL_SCANCODE_D])
+        BIT_SET(&Keys, 9);
+    else
+        BIT_CLEAR(&Keys, 9);
+
+    if (keystates[SDL_SCANCODE_Z])
+        BIT_SET(&Keys, 10);
+    else
+        BIT_CLEAR(&Keys, 10);
+
+    if (keystates[SDL_SCANCODE_C])
+        BIT_SET(&Keys, 11);
+    else
+        BIT_CLEAR(&Keys, 11);
+
+    if (keystates[SDL_SCANCODE_4])
+        BIT_SET(&Keys, 12);
+    else
+        BIT_CLEAR(&Keys, 12);
+
+    if (keystates[SDL_SCANCODE_R])
+        BIT_SET(&Keys, 13);
+    else
+        BIT_CLEAR(&Keys, 13);
+
+    if (keystates[SDL_SCANCODE_F])
+        BIT_SET(&Keys, 14);
+    else
+        BIT_CLEAR(&Keys, 14);
+
+    if (keystates[SDL_SCANCODE_V])
+        BIT_SET(&Keys, 15);
+    else
+        BIT_CLEAR(&Keys, 15);
+
 
 	return 0;
 }
@@ -159,7 +254,7 @@ int main(int argc, char *argv[])
     Uint32 fsize = ftell(fp);
     fseek(fp, 0L, SEEK_SET);
 
-    if(fsize > 4096){
+    if(fsize > RAM_SIZE){
         printf("File is to big!\n");
         return -1;
     }
@@ -181,6 +276,12 @@ int main(int argc, char *argv[])
 	Uint8 Int_Edge=0;
 	Uint8 EFx_Edge=0;
 
+    Uint8 KeyLatch=0;
+
+	Uint8 Remap = 0;
+	Uint16 Remap_Addr = 0;
+
+
 	Uint8 drawVideo = 0;
 
     //set up where we'll start drawing the inputs
@@ -197,6 +298,9 @@ int main(int argc, char *argv[])
     int xinc = 81;
     int yinc = 40;
 
+    BIT_SET(&Keys, 1);
+
+    add(xstart, ystart - yinc, Keys, "Keys");
     add(xstart, ystart, cpu.io_Addr16, "Add");
     add(xstart, ystart + yinc, cpu.io_DataOut, 7, "Data");
     add(xstart + xinc * 3.8, ystart + yinc, cpu.io_MRD, 0, "MRD");
@@ -227,13 +331,14 @@ int main(int argc, char *argv[])
 		dis.io_TPA = cpu.io_TPA;
 		dis.io_TPB = cpu.io_TPB;
 		dis.io_DataIn = cpu.io_DataOut;
-		dis.io_Disp_On = cpu.io_N == 1;
+		dis.io_Disp_On = cpu.io_N == 1 && cpu.io_TPB && !cpu.io_MWR;
+		dis.io_Disp_Off = cpu.io_N == 1 && cpu.io_TPB && !cpu.io_MRD;
 
         cpu.reset_1_ = (main_time>100) ? 0 : 1;
         cpu.io_DMA_In_n = 1;
         cpu.io_DMA_Out_n = dis.io_DMAO;
         cpu.io_Interrupt_n = dis.io_INT;
-		cpu.io_EF_n = dis.io_EFx;
+		cpu.io_EF_n = 0x0A | dis.io_EFx | ((BIT_CHECK(&Keys, KeyLatch) == 0)<<2);
 
 		if(Run){
 			Step = 0;
@@ -263,31 +368,46 @@ int main(int argc, char *argv[])
 
 		cpu.io_Clear_n = dis.io_Clear;
 
-		if(cpu.io_Addr16 > RAM_SIZE && !cpu.io_MRD && !cpu.io_MWR){
+		if(cpu.io_N == 0x4){
+			Remap=1;
+		}else if(!dis.io_Clear){
+			Remap=0;
+		}
+		
+		if(!Remap || (cpu.io_Addr16 & 0x8000))
+		{
+			Remap_Addr = 0x1e00 | (cpu.io_Addr16 & 0x1FF);
+		} else {
+			Remap_Addr = cpu.io_Addr16 & 0x1FFF;
+		}
+
+		if(Remap_Addr > RAM_SIZE && !cpu.io_MRD && !cpu.io_MWR){
 			printf("Accessed RAM outside of RAM area: %04X/%04X\r\n",cpu.io_Addr16, RAM_SIZE);
 			goto done;
 		}
 
-		if(cpu.io_Addr16 > RAM_SIZE) cpu.io_Addr16 = 0;
-
 		//memory stuff
 		if(!cpu.io_MRD){
-			cpu.io_DataIn = ram[(Uint16)cpu.io_Addr16];
+			cpu.io_DataIn = ram[Remap_Addr];
 		}
 
-		if(!cpu.io_MWR && cpu.io_TPB && !N_Edge){
-			ram[(Uint16)cpu.io_Addr16] = cpu.io_DataOut;
+		if(!cpu.io_MWR && cpu.io_TPB && !N_Edge && Remap_Addr < 0x1e00){
+			ram[Remap_Addr] = cpu.io_DataOut;
 		}
 
-		if(cpu.io_N == 2 && cpu.io_TPB && !N_Edge){
+		if(cpu.io_N == 4 && cpu.io_TPB && !N_Edge){
 			printf("%c",(char) cpu.io_DataOut);
 			fflush(stdout);
 		}
 
 		if(dis.io_INT && !Int_Edge && dis.io_EFx && !EFx_Edge){
-			Draw_Video(cpu.io_Addr16);
+			Draw_Video(Remap_Addr);
 			drawVideo=1;
 		} else drawVideo=0;
+
+        if(cpu.io_N == 2 && cpu.io_TPB && !N_Edge){
+            KeyLatch = cpu.io_DataOut & 0xf;
+        }
 
 		SC_Edge = cpu.io_SC;
 		W_Edge = cpu.io_MWR;
@@ -316,7 +436,7 @@ int main(int argc, char *argv[])
 			m_trace->dump (main_time);
 		#endif
 
-		if(drawVideo || main_time % 7000 == 0) draw();
+		if(drawVideo || main_time % 7000 == 0){ draw();}
     }
     //run until exit requested
     while (handleInput() >= 0);
