@@ -153,7 +153,7 @@ class CDP1802() extends Component {
     } otherwise (RSel := P)
 
     //Register Array Operation Logic
-	when(Reset){
+    when(Reset){
         R(0).setAllTo(false)
     }elsewhen(RegOpMode === RegOperationModes.Inc){
         R(RSel) := A + 1
@@ -166,7 +166,7 @@ class CDP1802() extends Component {
     }
 
     //Address Logic
-	when(Reset){
+    when(Reset){
         Addr := 0;
     }elsewhen(StateCounter === 0) {
         Addr := A;
@@ -207,7 +207,7 @@ class CDP1802() extends Component {
     ALU_SubDB := ALU_SubD - Cat(B"8'h00", !DF).asUInt
     ALU_SubMB := ALU_SubM - Cat(B"8'h00", !DF).asUInt
 
-	when(Reset){
+    when(Reset){
         DF := False
         D := 0
     }elsewhen(DRegControl === DRegControlModes.BusIn){
@@ -434,10 +434,10 @@ class CDP1802() extends Component {
                         }
                     }
                 }
-				when(Mode === CPUModes.Reset) {
+                when(Mode === CPUModes.Reset) {
                     goto(S1_Reset)
-				}elsewhen(StateCounter.willOverflow){
-					goto(S1_Execute)
+                }elsewhen(StateCounter.willOverflow){
+                    goto(S1_Execute)
                 }
             }
         }
@@ -610,9 +610,9 @@ class CDP1802() extends Component {
                         DRegControl := DRegControlModes.None
                     }
                 }
-				when(Mode === CPUModes.Reset) {
+                when(Mode === CPUModes.Reset) {
                     goto(S1_Reset)
-				}elsewhen(StateCounter.willOverflow){
+                }elsewhen(StateCounter.willOverflow){
                     outN := 0
                     when(!io.DMA_In_n) {
                         RegSelMode := RegSelectModes.DMA0
@@ -652,9 +652,9 @@ class CDP1802() extends Component {
                 when(StateCounter === 2) {
                     RegOpMode := RegOperationModes.None
                 }
-				when(Mode === CPUModes.Reset) {
+                when(Mode === CPUModes.Reset) {
                     goto(S1_Reset)
-				}elsewhen(StateCounter.willOverflow) {
+                }elsewhen(StateCounter.willOverflow) {
                     when(io.DMA_In_n && io.DMA_Out_n) {
                         ExeMode := ExecuteModes.None
                         when(Mode === CPUModes.Load) {
@@ -682,9 +682,9 @@ class CDP1802() extends Component {
                     X := 2;
                     IE := False;
                 }
-				when(Mode === CPUModes.Reset) {
+                when(Mode === CPUModes.Reset) {
                     goto(S1_Reset)
-				}elsewhen(StateCounter.willOverflow){
+                }elsewhen(StateCounter.willOverflow){
                     Idle := False
                     when(!io.DMA_In_n) {
                         ExeMode := ExecuteModes.DMA_In
