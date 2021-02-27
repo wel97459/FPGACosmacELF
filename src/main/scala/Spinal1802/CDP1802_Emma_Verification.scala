@@ -74,7 +74,6 @@ object cpu1802_Testing_Sim {
       dut.DFLast.simPublic()
       dut.Idle.simPublic()
       dut
-      dut
     }.doSim { dut =>
       //Fork a process to generate the reset and the clock on the dut
       dut.clockDomain.forkStimulus(period = 10)

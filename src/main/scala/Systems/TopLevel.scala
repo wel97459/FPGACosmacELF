@@ -3,6 +3,7 @@ package Spinal1802
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
+import XlinxS6BB._
 
 //Hardware definition
 class TopLevel extends Component {
@@ -53,7 +54,7 @@ class TopLevel extends Component {
 
 
         //set up Ram
-        val ram4096 = new Ram("Ram",12, 8)
+        val ram4096 = new RAM_BB("Ram",12, 8)
         ram4096.io.ena := True
         ram4096.io.wea := ~(Cpu.io.MWR & !debounce(8)).asBits
         ram4096.io.dina := Cpu.io.DataOut
