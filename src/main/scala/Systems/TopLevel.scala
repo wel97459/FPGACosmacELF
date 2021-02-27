@@ -24,7 +24,7 @@ class TopLevel extends Component {
         pll.io.RESET := !io.reset_n
         pll.io.CLK_IN1 := io.clk50Mhz
 
-        //using 8mhz so that UART running 115200 BAUD
+        //Using 8mhz so that UART buad rate is 115200
         val clk8Domain = ClockDomain.internal(name = "core8",  frequency = FixedFrequency(8 MHz))
 
         clk8Domain.clock := pll.io.CLK_OUT1
