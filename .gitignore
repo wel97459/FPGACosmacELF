@@ -39,3 +39,9 @@ bin/
 
 simWorkspace/
 tmp/
+
+#VSC
+project/
+.metals/
+.bloop/
+.vscode/
