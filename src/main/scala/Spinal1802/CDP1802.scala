@@ -153,7 +153,7 @@ class CDP1802() extends Component {
     } otherwise (RSel := P)
 
     //Register Array Operation Logic
-	 when(Reset){
+	when(Reset){
         R(0).setAllTo(false)
     }elsewhen(RegOpMode === RegOperationModes.Inc){
         R(RSel) := A + 1
@@ -166,7 +166,7 @@ class CDP1802() extends Component {
     }
 
     //Address Logic
-	  when(Reset){
+	when(Reset){
         Addr := 0;
     }elsewhen(StateCounter === 0) {
         Addr := A;
@@ -266,27 +266,27 @@ class CDP1802() extends Component {
     } otherwise(Bus := 0)
 
     //Check for a branch conditions
-        when(N === 0x0 || (I === 0xC && N===0x4)) {
-            Branch := True
-        }elsewhen(N === 0x1 || (I === 0xC && N===0x5)){
-            Branch := (Q === True)
-        }elsewhen(N === 0x2 || (I === 0xC && N===0x6)){
-            Branch := (D === 0x0)
-        }elsewhen(N === 0x3 || (I === 0xC && N===0x7)){
-            Branch := (DF === True)
-        }elsewhen(N === 0x9 || (I === 0xC && N===0xD)){
-            Branch := (Q === False)
-        }elsewhen(N === 0xA || (I === 0xC && N===0xE)){
-            Branch := (D =/= 0x0)
-        }elsewhen(N === 0xB || (I === 0xC && N===0xF)){
-            Branch := (DF === False)
-        }elsewhen((I === 0xC && N===0xC)){
-            Branch := (IE === False)
-        }elsewhen(I === 0x3 && (N===0x4 || N===0x5 || N===0x6 || N===0x7)){
-            Branch := (EF(N(1 downto 0)) === True)
-        }elsewhen(I === 0x3 && (N===0xC || N===0xD || N===0xE || N===0xF)) {
-            Branch := (EF(N(1 downto 0)) === False)
-        }otherwise(Branch := False)
+    when(N === 0x0 || (I === 0xC && N===0x4)) {
+        Branch := True
+    }elsewhen(N === 0x1 || (I === 0xC && N===0x5)){
+        Branch := (Q === True)
+    }elsewhen(N === 0x2 || (I === 0xC && N===0x6)){
+        Branch := (D === 0x0)
+    }elsewhen(N === 0x3 || (I === 0xC && N===0x7)){
+        Branch := (DF === True)
+    }elsewhen(N === 0x9 || (I === 0xC && N===0xD)){
+        Branch := (Q === False)
+    }elsewhen(N === 0xA || (I === 0xC && N===0xE)){
+        Branch := (D =/= 0x0)
+    }elsewhen(N === 0xB || (I === 0xC && N===0xF)){
+        Branch := (DF === False)
+    }elsewhen((I === 0xC && N===0xC)){
+        Branch := (IE === False)
+    }elsewhen(I === 0x3 && (N===0x4 || N===0x5 || N===0x6 || N===0x7)){
+        Branch := (EF(N(1 downto 0)) === True)
+    }elsewhen(I === 0x3 && (N===0xC || N===0xD || N===0xE || N===0xF)) {
+        Branch := (EF(N(1 downto 0)) === False)
+    }otherwise(Branch := False)
 
 
     val CoreFMS = new StateMachine {
@@ -334,10 +334,6 @@ class CDP1802() extends Component {
             whenIsActive{
                 Reset := False
                 SC := 0
-
-				when(Mode === CPUModes.Reset) {
-                    goto(S1_Reset)
-				}
 
                 when(StateCounter === 0) {
                     ExeMode := ExecuteModes.None
@@ -438,8 +434,9 @@ class CDP1802() extends Component {
                         }
                     }
                 }
-
-                when(StateCounter.willOverflow){
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}elsewhen(StateCounter.willOverflow){
 					goto(S1_Execute)
                 }
             }
@@ -449,9 +446,7 @@ class CDP1802() extends Component {
             whenIsActive{
                 Reset := False
                 SC := 1
-				when(Mode === CPUModes.Reset) {
-                    goto(S1_Reset)
-				}
+
                 when(StateCounter === 1){
                     when(ExeMode === ExecuteModes.Load || ExeMode === ExecuteModes.Write || ExeMode === ExecuteModes.LongLoad)
                     {
@@ -615,8 +610,9 @@ class CDP1802() extends Component {
                         DRegControl := DRegControlModes.None
                     }
                 }
-
-                when(StateCounter.willOverflow){
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}elsewhen(StateCounter.willOverflow){
                     outN := 0
                     when(!io.DMA_In_n) {
                         RegSelMode := RegSelectModes.DMA0
@@ -643,9 +639,6 @@ class CDP1802() extends Component {
         val S2_DMA: State = new State {
             whenIsActive {
                 SC := 2
-				when(Mode === CPUModes.Reset) {
-                    goto(S1_Reset)
-				}
 
                 when(StateCounter === 0) {
                     BusControl := BusControlModes.DataIn
@@ -659,8 +652,9 @@ class CDP1802() extends Component {
                 when(StateCounter === 2) {
                     RegOpMode := RegOperationModes.None
                 }
-
-                when(StateCounter.willOverflow) {
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}elsewhen(StateCounter.willOverflow) {
                     when(io.DMA_In_n && io.DMA_Out_n) {
                         ExeMode := ExecuteModes.None
                         when(Mode === CPUModes.Load) {
@@ -678,9 +672,6 @@ class CDP1802() extends Component {
         val S3_INT: State = new State {
             whenIsActive {
                 SC := 3
-				when(Mode === CPUModes.Reset) {
-                    goto(S1_Reset)
-				}
 
                 when(StateCounter === 2) {
                     T := Cat(X, P).asUInt
@@ -691,8 +682,9 @@ class CDP1802() extends Component {
                     X := 2;
                     IE := False;
                 }
-
-                when(StateCounter.willOverflow){
+				when(Mode === CPUModes.Reset) {
+                    goto(S1_Reset)
+				}elsewhen(StateCounter.willOverflow){
                     Idle := False
                     when(!io.DMA_In_n) {
                         ExeMode := ExecuteModes.DMA_In
