@@ -13,7 +13,7 @@ object RegSelectModes extends SpinalEnum {
 }
 
 object RegOperationModes extends SpinalEnum {
-    val None, Inc, Dec, LoadUpper, LoadLower, UpperOnBus, LowerOnBus  = newElement()
+    val None, Inc, Dec, LoadUpper, LoadLower, UpperOnBus, LowerOnBus, LoadTemp, LoadJump  = newElement()
 }
 
 object ExecuteModes extends SpinalEnum {
@@ -87,9 +87,11 @@ class CDP1802() extends Component {
     val DFLast = RegNext(DF) //For Testing
     val OP = RegNext(Cat(I,N))
     val Idle = Reg(Bool) init(False)
-    val Reset = Reg(Bool) init(False)
-    val Branch = Reg(Bool) init(False)
-    val Skip = RegNext(N === 0x4 || N === 0x5 || N === 0x6 || N === 0x7 || N === 0x8 || N === 0xC || N === 0xD || N === 0xE || N === 0xF)
+    val Reset = False
+    val Branch = False
+    val Skip = (N === 0x4 || N === 0x5 || N === 0x6 || N === 0x7 || N === 0x8 || N === 0xC || N === 0xD || N === 0xE || N === 0xF)
+    val TmpUpper = Reg(UInt(8 bit))
+
     //ALU Operations
     val ALU_Add = UInt(9 bit)
     val ALU_AddCarry = UInt(9 bit)
@@ -155,7 +157,7 @@ class CDP1802() extends Component {
     //Register Array Operation Logic
     when(Reset){
         R(0).setAllTo(false)
-    }elsewhen(RegOpMode === RegOperationModes.Inc){
+    } elsewhen(RegOpMode === RegOperationModes.Inc){
         R(RSel) := A + 1
     } elsewhen (RegOpMode === RegOperationModes.Dec) {
         R(RSel) := A - 1
@@ -163,6 +165,10 @@ class CDP1802() extends Component {
         R(RSel) := Cat (Bus,R(RSel)(7 downto 0).asBits).asUInt
     } elsewhen (RegOpMode === RegOperationModes.LoadLower) {
         R(RSel) := Cat (R(RSel)(15 downto 8).asBits,Bus).asUInt
+    } elsewhen(RegOpMode === RegOperationModes.LoadTemp){
+        TmpUpper := Bus
+    } elsewhen(RegOpMode === RegOperationModes.LoadJump){
+        R(RSel) := Cat(TmpUpper, Bus).asUInt
     }
 
     //Address Logic
@@ -266,21 +272,21 @@ class CDP1802() extends Component {
     } otherwise(Bus := 0)
 
     //Check for a branch conditions
-    when(N === 0x0 || (I === 0xC && N===0x4)) {
+    when(N === 0x0 || OP === 0xC4) {
         Branch := True
-    }elsewhen(N === 0x1 || (I === 0xC && N===0x5)){
+    }elsewhen(N === 0x1 || OP === 0xC5 || OP === 0xC1){
         Branch := (Q === True)
-    }elsewhen(N === 0x2 || (I === 0xC && N===0x6)){
+    }elsewhen(N === 0x2 || OP === 0xC6 || OP === 0xC2){
         Branch := (D === 0x0)
-    }elsewhen(N === 0x3 || (I === 0xC && N===0x7)){
+    }elsewhen(N === 0x3 || OP === 0xC7 || OP === 0xC3){
         Branch := (DF === True)
-    }elsewhen(N === 0x9 || (I === 0xC && N===0xD)){
+    }elsewhen(N === 0x9 || OP === 0xCD || OP === 0xC9){
         Branch := (Q === False)
-    }elsewhen(N === 0xA || (I === 0xC && N===0xE)){
+    }elsewhen(N === 0xA || OP === 0xCE || OP === 0xCA){
         Branch := (D =/= 0x0)
-    }elsewhen(N === 0xB || (I === 0xC && N===0xF)){
+    }elsewhen(N === 0xB || OP === 0xCF || OP === 0xCB){
         Branch := (DF === False)
-    }elsewhen((I === 0xC && N===0xC)){
+    }elsewhen(OP === 0xCC){
         Branch := (IE === False)
     }elsewhen(I === 0x3 && (N===0x4 || N===0x5 || N===0x6 || N===0x7)){
         Branch := (EF(N(1 downto 0)) === True)
@@ -547,10 +553,10 @@ class CDP1802() extends Component {
                         is(0xC){
                             when(ExeMode === ExecuteModes.Load) {
                                 when(Branch && !Skip) {
-                                    RegOpMode := RegOperationModes.LoadUpper
+                                    RegOpMode := RegOperationModes.LoadTemp
                                 }
-                            }elsewhen(ExeMode === ExecuteModes.LongLoad && !Skip){
-                                RegOpMode := RegOperationModes.LoadLower
+                            }elsewhen(ExeMode === ExecuteModes.LongLoad && Branch && !Skip){
+                                RegOpMode := RegOperationModes.LoadJump
                             }
                         }
 
@@ -595,10 +601,12 @@ class CDP1802() extends Component {
 
                     when(ExeMode === ExecuteModes.LongLoad || ExeMode === ExecuteModes.LongContinue){
                         ExeMode := ExecuteModes.None
-                    }elsewhen(I === 0xc && (RegOpMode === RegOperationModes.LoadUpper || (Skip && !Branch))){
+                    }elsewhen(I === 0xC && (RegOpMode === RegOperationModes.LoadTemp || (Skip && !Branch))){
                         ExeMode := ExecuteModes.LongLoad
-                    }elsewhen(I === 0xc && Branch){
+                    }elsewhen(I === 0xC && Skip && Branch){
                         ExeMode := ExecuteModes.LongContinue
+                    }elsewhen(I === 0xC && !Skip && !Branch){
+                        ExeMode := ExecuteModes.LongLoad
                     }
 
                     when(Idle){
@@ -622,7 +630,7 @@ class CDP1802() extends Component {
                         RegSelMode := RegSelectModes.DMA0
                         ExeMode := ExecuteModes.DMA_Out
                         goto(S2_DMA)
-                    }elsewhen(!io.Interrupt_n && IE){
+                    }elsewhen(!io.Interrupt_n && IE && !(ExeMode === ExecuteModes.LongLoad || ExeMode === ExecuteModes.LongContinue)){
                         ExeMode := ExecuteModes.None
                         goto(S3_INT)
                     }elsewhen(Mode === CPUModes.Load) {
