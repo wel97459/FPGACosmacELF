@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
-#set(CMAKE_BUILD_TYPE Debug)
-#SET(CMAKE_BUILD_TYPE Relese)
+
+if (MINGW32)
+	set(CMAKE_SYSTEM_NAME Windows)
+	SET(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+	SET(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
+	SET(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
+	set(CMAKE_RANLIB x86_64-w64-mingw32-ranlib)
+	set(SDL2_INCLUDE_DIR /usr/x86_64-w64-mingw32/include)
+	set(SDL2_LIBRARY /usr/x86_64-w64-mingw32/lib)
+endif()
+
 SET(CMAKE_CXX_STANDARD 11)
 project(cosmacELF)
 
