@@ -25,7 +25,7 @@ make
 ./cosmacELF tests/Chip8_Tetris2.bin
 ```
 
-#### Windows
+#### Windows when compiling under linux with MINGW32
 ```bash
 cmake -DMINGW32=1 .
 cosmacELF.exe tests/Chip8_Tetris2.bin
